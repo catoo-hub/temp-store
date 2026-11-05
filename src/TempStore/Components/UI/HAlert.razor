@@ -1,0 +1,8 @@
+<div class="ui-alert ui-alert--@Tone" role="@(Tone == "danger" ? "alert" : "status")">
+    <Icon Name="@(Tone == "success" ? "check" : "info")" /><div>@if (Title is not null) { <strong>@Title</strong> }<div>@ChildContent</div></div>
+</div>
+@code {
+    [Parameter] public string Tone { get; set; } = "default";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

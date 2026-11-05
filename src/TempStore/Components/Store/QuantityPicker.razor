@@ -1,0 +1,7 @@
+<div class="quantity-picker" role="group" aria-label="@Label"><HButton Variant="ghost" IconOnly Size="sm" Disabled="@(Value <= 1)" aria-label="Уменьшить количество" OnClick="() => ValueChanged.InvokeAsync(Value - 1)"><Icon Name="minus" Size="16" /></HButton><output aria-label="Количество">@Value</output><HButton Variant="ghost" IconOnly Size="sm" Disabled="@(Value >= Max)" aria-label="Увеличить количество" OnClick="() => ValueChanged.InvokeAsync(Value + 1)"><Icon Name="plus" Size="16" /></HButton></div>
+@code {
+ [Parameter] public int Value { get; set; } = 1;
+ [Parameter] public int Max { get; set; } = 10;
+ [Parameter] public string Label { get; set; } = "Количество товара";
+ [Parameter] public EventCallback<int> ValueChanged { get; set; }
+}

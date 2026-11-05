@@ -1,0 +1,56 @@
+[
+  {
+    "name": "club-hoodie",
+    "page": "https://www.nike.com/t/sportswear-club-fleece-pullover-hoodie-Gw4Nwq/BV2654-063",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/ee51aea6-1ba3-45a2-8225-d4dc12143105/M+NSW+CLUB+HOODIE+PO+BB.png",
+    "file": "club-hoodie.webp",
+    "bytes": 97182
+  },
+  {
+    "name": "club-shirt",
+    "page": "https://www.nike.com/t/sportswear-club-mens-t-shirt-TWv108/FV0375-100",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/413d0f9c-255d-4e65-a993-b70ea3045e3b/M+NSW+TEE+CLUB+MAX.png",
+    "file": "club-shirt.webp",
+    "bytes": 23342
+  },
+  {
+    "name": "club-joggers",
+    "page": "https://www.nike.com/t/sportswear-club-fleece-joggers-0HUNI7WO/BV2671-010",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/f8ae021d-d275-4f53-9250-fda28a9b4504/M+NSW+CLUB+JGGR+BB.png",
+    "file": "club-joggers.webp",
+    "bytes": 98960
+  },
+  {
+    "name": "pro-shorts",
+    "page": "https://www.nike.com/t/pro-dri-fit-mens-shorts-m2ZgQg",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/c09578d0-17f1-40cc-9dc0-f4ac4ce92d14/M+NP+DF+SHORT.png",
+    "file": "pro-shorts.webp",
+    "bytes": 39448
+  },
+  {
+    "name": "one-leggings",
+    "page": "https://www.nike.com/t/one-womens-dri-fit-high-waisted-full-length-leggings-Jv4lwr",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/73ef1031-88e5-4e28-89d4-e0090c62c111/W+NK+ONE+DF+HR+TGHT.png",
+    "file": "one-leggings.webp",
+    "bytes": 47938
+  },
+  {
+    "name": "windrunner",
+    "page": "https://www.nike.com/t/windrunner-mens-graphic-woven-jacket-kwWAJkHs",
+    "image": "https://static.nike.com/a/images/t_PDP_864_v1/f_auto,q_auto:eco/73d4c37c-8396-4e38-9d8a-370ba6a5e080/M+NK+WR+GFX+WVN+JKT.png",
+    "file": "windrunner.webp",
+    "bytes": 52772
+  },
+  {
+    "name": "adidas-leggings",
+    "image": "https://assets.adidas.com/images/w_600,f_auto,q_auto/e4e5140adabe406a8874ad73f25704ed_9366/JM3067_01_laydown.jpg",
+    "file": "adidas-leggings.webp",
+    "bytes": 5274
+  },
+  {
+    "name": "adidas-shirt",
+    "image": "https://assets.adidas.com/images/w_600,f_auto,q_auto/8ee10dc55a1945b88b0caf0400a562a4_9366/IC9286_01_laydown.jpg",
+    "page": "https://www.adidas.com/qa/en/essentials-single-jersey-embroidered-small-logo-tee/IC9286.html",
+    "file": "adidas-shirt.webp"
+  }
+]

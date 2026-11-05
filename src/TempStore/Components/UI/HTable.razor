@@ -1,0 +1,19 @@
+@typeparam TItem
+<div class="table-scroll" tabindex="0" role="region" aria-label="@Caption">
+    <table class="ui-table">
+        <caption class="sr-only">@Caption</caption>
+        <thead><tr>@Header</tr></thead>
+        <tbody>
+            @foreach (var item in Items) { <tr>@Row(item)</tr> }
+            @if (!Items.Any()) { <tr><td colspan="@Columns" class="table-empty">@EmptyText</td></tr> }
+        </tbody>
+    </table>
+</div>
+@code {
+    [Parameter] public string Caption { get; set; } = "Данные";
+    [Parameter] public string EmptyText { get; set; } = "Записей пока нет";
+    [Parameter] public int Columns { get; set; } = 1;
+    [Parameter, EditorRequired] public IEnumerable<TItem> Items { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment<TItem> Row { get; set; } = default!;
+    [Parameter] public RenderFragment? Header { get; set; }
+}

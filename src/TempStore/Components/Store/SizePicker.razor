@@ -1,0 +1,7 @@
+<fieldset class="size-picker"><legend class="label">Размер @if (Value.Length > 0) { <span class="muted">· @Value</span> }</legend><div class="size-options">@foreach (var size in Sizes) { <label class="size-option"><input type="radio" name="@name" value="@size" checked="@(Value == size)" @onchange="() => ValueChanged.InvokeAsync(size)" /><span>@size</span></label> }</div></fieldset>
+@code {
+ private readonly string name = "size-" + Guid.NewGuid().ToString("N");
+ [Parameter] public IReadOnlyList<string> Sizes { get; set; } = [];
+ [Parameter] public string Value { get; set; } = "";
+ [Parameter] public EventCallback<string> ValueChanged { get; set; }
+}

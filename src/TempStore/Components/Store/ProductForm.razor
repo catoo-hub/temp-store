@@ -1,0 +1,10 @@
+@inject CatalogService Catalog
+<EditForm Model="Model" OnValidSubmit="Save" FormName="product-preview" class="form-stack">
+    <DataAnnotationsValidator /><HInput Label="Название товара" @bind-Value="Model.Name" Required /><div class="form-grid"><HSelect Label="Бренд" @bind-Value="Model.Brand"><option value="">Выберите бренд</option>@foreach (var brand in Catalog.Brands) { <option value="@brand.Name">@brand.Name</option> }</HSelect><HSelect Label="Категория" @bind-Value="Model.Category"><option value="">Выберите категорию</option>@foreach (var category in Catalog.Categories) { <option>@category</option> }</HSelect></div><div class="field"><label class="label" for="@priceId">Цена, ₽</label><InputNumber id="@priceId" class="input" @bind-Value="Model.Price" /><ValidationMessage For="() => Model.Price" /></div><HSwitch @bind-Value="Model.IsNew">Показывать в новинках</HSwitch><HButton Type="submit" FullWidth>Применить в предпросмотре</HButton>
+</EditForm>
+@code {
+    private readonly string priceId = "price-" + Guid.NewGuid().ToString("N");
+    [Parameter, EditorRequired] public ProductEditModel Model { get; set; } = default!;
+    [Parameter] public EventCallback<ProductEditModel> OnSave { get; set; }
+    private Task Save() => OnSave.InvokeAsync(Model);
+}

@@ -1,0 +1,10 @@
+<HTable TItem="OrderRow" Items="Orders" Columns="5" Caption="Заказы">
+    <Header><th scope="col">Заказ</th><th scope="col">Покупатель</th><th scope="col">Дата</th><th scope="col">Сумма</th><th scope="col">Статус</th></Header>
+    <Row Context="order"><td><strong>@order.Number</strong></td><td>@order.Customer</td><td>@order.Date.ToString("dd.MM.yyyy")</td><td>@CatalogService.Money(order.Total)</td><td>@if (Editable) { <select class="input native-select" aria-label="@($"Статус заказа {order.Number}")" value="@order.Status" @onchange="e => OnStatusChanged.InvokeAsync(order with { Status = e.Value?.ToString() ?? order.Status })">@foreach (var status in statuses) { <option>@status</option> }</select> } else { <StatusChip Status="@order.Status" /> }</td></Row>
+</HTable>
+@code {
+    private static readonly string[] statuses = ["Новый", "Собирается", "В пути", "Получен", "Отменён"];
+    [Parameter] public IEnumerable<OrderRow> Orders { get; set; } = [];
+    [Parameter] public bool Editable { get; set; }
+    [Parameter] public EventCallback<OrderRow> OnStatusChanged { get; set; }
+}

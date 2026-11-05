@@ -1,0 +1,10 @@
+<label class="switch-field">
+    <input role="switch" type="checkbox" checked="@Value" @onchange="e => ValueChanged.InvokeAsync(e.Value is true)" disabled="@Disabled" />
+    <span class="switch-track" aria-hidden="true"><span></span></span><span>@ChildContent</span>
+</label>
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

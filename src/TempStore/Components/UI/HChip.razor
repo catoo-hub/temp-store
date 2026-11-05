@@ -1,0 +1,7 @@
+<span class="chip chip--@Color chip--@Variant @Class"><span class="chip__label">@ChildContent</span></span>
+@code {
+    [Parameter] public string Color { get; set; } = "default";
+    [Parameter] public string Variant { get; set; } = "soft";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

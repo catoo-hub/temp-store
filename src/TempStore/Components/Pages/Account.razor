@@ -1,0 +1,11 @@
+@page "/account"
+@inject CatalogService Catalog
+@inject ToastService Toasts
+<PageTitle>Личный кабинет — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Личный кабинет" /><HAlert Title="Компоненты кабинета">Вход и регистрация пока не подключены к серверу. Формы проверяют поля, но не создают учётную запись. Ниже — пример истории заказов.</HAlert><div class="auth-layout"><div class="auth-intro"><h2>Ваши данные и заказы</h2><p>После подключения авторизации здесь можно будет изменить профиль и проверить статус заказа.</p><a href="/catalog" class="text-link">Вернуться в каталог <Icon Name="right" /></a></div><HCard><HTabs Items="tabs" @bind-Value="tab" Label="Вход или регистрация">@if (tab == "login") { <LoginForm OnValidated="LoginValidated" /> } else { <RegisterForm OnValidated="RegisterValidated" /> }</HTabs></HCard></div><section class="section"><div class="section-heading"><h2>Пример истории заказов</h2><HChip>Демонстрация</HChip></div><OrderTable Orders="Catalog.Orders.Take(2)" /></section></div>
+@code {
+    private string tab = "login";
+    private readonly TabOption[] tabs = [new("login", "Вход"), new("register", "Регистрация")];
+    private void LoginValidated(LoginModel model) => Toasts.Show("Поля заполнены верно. Серверная авторизация ещё не подключена.");
+    private void RegisterValidated(RegisterModel model) => Toasts.Show("Форма корректна. Учётная запись не создана.");
+}

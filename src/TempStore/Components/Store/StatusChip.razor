@@ -1,0 +1,5 @@
+<HChip Color="@Color">@Status</HChip>
+@code {
+ [Parameter] public string Status { get; set; } = "Новый";
+ private string Color => Status switch { "Получен" or "Опубликован" => "success", "В пути" => "accent", "Собирается" or "На модерации" => "warning", "Отменён" or "Отклонён" => "danger", _ => "default" };
+}

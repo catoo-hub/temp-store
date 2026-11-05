@@ -1,0 +1,7 @@
+<div class="empty-state"><span class="empty-icon"><Icon Name="@IconName" Size="32" /></span><h2>@Title</h2><p class="muted">@Description</p>@ChildContent</div>
+@code {
+ [Parameter] public string Title { get; set; } = "Пока ничего нет";
+ [Parameter] public string Description { get; set; } = "";
+ [Parameter] public string IconName { get; set; } = "bag";
+ [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,47 @@
+@page "/catalog"
+@page "/new"
+@page "/sale"
+@inject CatalogService Store
+@inject NavigationManager Navigation
+<PageTitle>@Title — ТЕМП</PageTitle>
+<div class="container">
+    <PageHeading Title="@Title" Description="Футболки, худи, брюки и одежда для тренировок." />
+    @if (IsSale) { <div class="collection-banner"><h2>Товары со скидкой</h2><p>Старая цена указана рядом с новой.</p></div> }
+    <div class="catalog-layout"><aside class="desktop-filters"><CatalogFilters Filter="filter" Changed="ResetPage" /></aside><section class="catalog-results" aria-label="Товары">
+        <div class="catalog-toolbar"><HInput Label="Поиск" Placeholder="Название, бренд или категория" @bind-Value="search" @bind-Value:after="ResetPage" /><HSelect Label="Сортировка" @bind-Value="sort" @bind-Value:after="ResetPage"><option value="popular">По популярности</option><option value="price-up">Сначала дешевле</option><option value="price-down">Сначала дороже</option><option value="new">Сначала новинки</option></HSelect><HButton Class="mobile-filter-button" Variant="secondary" OnClick="() => filtersOpen = true"><Icon Name="filter" /> Фильтры (@filter.ActiveCount)</HButton></div>
+        <div class="result-count row between" aria-live="polite"><span>@Filtered.Count товаров</span>@if (filter.ActiveCount > 0 || search.Length > 0) { <HButton Variant="ghost" Size="sm" OnClick="Reset">Сбросить всё</HButton> }</div>
+        @if (Filtered.Count == 0) { <EmptyState Title="Ничего не нашлось" Description="Попробуйте другой запрос или уберите часть фильтров." IconName="search"><HButton OnClick="Reset">Сбросить фильтры</HButton></EmptyState> }
+        else { <div class="product-grid catalog-grid">@foreach (var product in Filtered.Skip((page - 1) * PageSize).Take(PageSize)) { <ProductCard Product="product" @key="product.Id" /> }</div><HPagination Page="page" PageChanged="p => page = p" TotalPages="@((Filtered.Count + PageSize - 1) / PageSize)" /> }
+    </section></div>
+</div>
+<HModal @bind-Open="filtersOpen" Sheet Title="Фильтры каталога"><CatalogFilters Filter="filter" Changed="ResetPage" /><HButton FullWidth OnClick="() => filtersOpen = false">Показать @Filtered.Count товаров</HButton></HModal>
+@code {
+    [SupplyParameterFromQuery(Name = "brand")] public string? BrandQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "category")] public string? CategoryQuery { get; set; }
+    private readonly CatalogFilter filter = new();
+    private string search = "", sort = "popular", previousUri = "";
+    private int page = 1;
+    private const int PageSize = 6;
+    private bool filtersOpen;
+    private bool IsNew => new Uri(Navigation.Uri).AbsolutePath == "/new";
+    private bool IsSale => new Uri(Navigation.Uri).AbsolutePath == "/sale";
+    private string Title => IsNew ? "Новинки" : IsSale ? "Акции" : "Каталог одежды";
+    protected override void OnParametersSet()
+    {
+        if (previousUri == Navigation.Uri) return;
+        previousUri = Navigation.Uri; filter.Clear(); search = ""; page = 1;
+        if (!string.IsNullOrWhiteSpace(BrandQuery)) filter.Brands.Add(BrandQuery);
+        if (!string.IsNullOrWhiteSpace(CategoryQuery)) filter.Categories.Add(CategoryQuery);
+    }
+    private List<Product> Filtered
+    {
+        get
+        {
+            var result = Store.Products.Where(filter.Matches).Where(p => (!IsNew || p.IsNew) && (!IsSale || p.Discount > 0))
+                .Where(p => $"{p.Name} {p.Brand} {p.Category}".Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+            return (sort switch { "price-up" => result.OrderBy(p => p.Price), "price-down" => result.OrderByDescending(p => p.Price), "new" => result.OrderByDescending(p => p.IsNew), _ => result.OrderByDescending(p => p.Popular) }).ToList();
+        }
+    }
+    private void ResetPage() => page = 1;
+    private void Reset() { filter.Clear(); search = ""; page = 1; }
+}

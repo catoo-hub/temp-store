@@ -1,0 +1,30 @@
+@page "/components"
+@inject CatalogService Catalog
+@inject ToastService Toasts
+<PageTitle>Компоненты HeroUI / Blazor — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Компоненты интерфейса" Eyebrow="HEROUI × BLAZOR" Description="Переиспользуемые элементы для интернет-магазина по варианту №6." /><HAlert>Официальный CSS HeroUI 3.2.7; компоненты и поведение написаны на Razor / C#. React-компоненты не подключаются. Светлая и тёмная темы переключаются в шапке.</HAlert>
+<div class="demo-grid">
+    <HCard><h2>Кнопки и состояния</h2><div class="row wrap"><HButton OnClick="Notify">Основная</HButton><HButton Variant="secondary" OnClick="Notify">Вторичная</HButton><HButton Variant="outline" OnClick="Notify">Контур</HButton><HButton Variant="ghost" OnClick="Notify">Без фона</HButton><HButton Variant="danger" OnClick="() => confirm = true">Удалить</HButton></div><div class="row wrap"><HButton Loading>Сохранение</HButton><HButton Disabled>Недоступна</HButton><HButton Size="sm" OnClick="Notify">Маленькая</HButton><HButton IconOnly aria-label="Добавить" OnClick="Notify"><Icon Name="plus" /></HButton></div></HCard>
+    <HCard><h2>Метки и статусы</h2><div class="row wrap"><HChip Color="accent">Новинка</HChip><HChip Color="success">В наличии</HChip><HChip Color="warning">На модерации</HChip><HChip Color="danger">Нет в наличии</HChip><HChip>Архив</HChip></div><div class="row wrap"><StatusChip Status="Новый" /><StatusChip Status="Собирается" /><StatusChip Status="В пути" /><StatusChip Status="Получен" /><StatusChip Status="Отменён" /></div><div class="row"><HAvatar Name="Анна Смирнова" /><HAvatar Name="Иван Петров" /><span class="muted small">Инициалы пользователя</span></div></HCard>
+    <HCard><h2>Фильтры и выбор</h2><HInput Label="Поиск" @bind-Value="query" Placeholder="Название товара" /><HSelect Label="Бренд" @bind-Value="brand"><option value="">Все бренды</option>@foreach (var b in Catalog.Brands) { <option>@b.Name</option> }</HSelect><div class="row wrap"><HCheckbox @bind-Value="checkedValue">Только в наличии</HCheckbox><HSwitch @bind-Value="discount">Со скидкой</HSwitch></div><HSlider @bind-Value="price" /></HCard>
+    <HCard><h2>Размер и количество</h2><SizePicker Sizes="Catalog.Sizes" @bind-Value="size" /><QuantityPicker @bind-Value="quantity" /><p class="muted small">Выбрано: @(size.Length == 0 ? "размер не указан" : size), количество: @quantity</p><HAccordion Title="Описание товара" Open><p>Раскрывающийся блок для состава, ухода и доставки. Работает с клавиатуры.</p></HAccordion><HAccordion Title="Условия доставки"><p>Содержимое следующего раздела.</p></HAccordion></HCard>
+    <HCard><h2>Окна и уведомления</h2><div class="row wrap"><HButton OnClick="() => modal = true">Открыть окно</HButton><HButton Variant="secondary" OnClick="() => sheet = true">Боковая панель</HButton><HButton Variant="outline" OnClick="Notify">Уведомление</HButton></div><HAlert Tone="success" Title="Успешно">Пример завершённого действия.</HAlert><HAlert Tone="danger" Title="Проверьте данные">Пример ошибки, требующей исправления.</HAlert></HCard>
+    <HCard><h2>Загрузка и вкладки</h2><HTabs Items="tabs" @bind-Value="tab">@if (tab == "loading") { <div aria-busy="true"><HSkeleton Height="90px" /><HSkeleton Width="65%" /><div class="row"><HSpinner /> <span class="muted small">Пример состояния загрузки</span></div></div> } else { <p>Состояние готового блока. Вкладки переключаются стрелками, Home и End.</p> }</HTabs></HCard>
+</div>
+<section class="demo-section"><h2>Карточки товаров</h2><div class="product-grid">@foreach (var product in Catalog.Products.Take(4)) { <ProductCard Product="product" /> }</div></section>
+<section class="demo-section"><h2>Таблица и пагинация</h2><OrderTable Orders="Catalog.Orders.Skip((page - 1) * 2).Take(2)" /><HPagination @bind-Page="page" TotalPages="2" /></section>
+<section class="demo-section"><h2>Валидация форм</h2><div class="demo-grid"><HCard><h3>Регистрация</h3><RegisterForm OnValidated="FormValidated" /></HCard><HCard><h3>Обратная связь</h3><FeedbackForm OnValidated="FeedbackValidated" /></HCard></div></section>
+</div>
+<HModal @bind-Open="modal" Title="Пример модального окна" Description="Закройте окно кнопкой, клавишей Escape или нажатием на фон."><p>Фокус остаётся внутри окна, а после закрытия возвращается к кнопке открытия.</p><HButton FullWidth OnClick="() => modal = false">Готово</HButton></HModal>
+<HModal @bind-Open="sheet" Sheet Title="Боковая панель"><p class="muted">Подходит для фильтров и мобильной навигации.</p><HInput Label="Поиск в панели" @bind-Value="query" /><HButton OnClick="() => sheet = false">Применить</HButton></HModal>
+<HModal @bind-Open="confirm" Title="Подтвердить удаление?" Description="Демонстрация окна подтверждения."><div class="row"><HButton Variant="secondary" OnClick="() => confirm = false">Отмена</HButton><HButton Variant="danger" OnClick="Confirm">Подтвердить</HButton></div></HModal>
+@code {
+    private string query = "", brand = "", size = "", tab = "loading";
+    private bool checkedValue, discount, modal, sheet, confirm;
+    private int price = 10000, quantity = 1, page = 1;
+    private readonly TabOption[] tabs = [new("loading", "Загрузка"), new("ready", "Готово")];
+    private void Notify() => Toasts.Show("Компонент работает. Это пример уведомления.");
+    private void Confirm() { confirm = false; Toasts.Show("Подтверждение получено. Данные не удалялись."); }
+    private void FormValidated(RegisterModel model) => Toasts.Show("Форма регистрации корректна. Аккаунт не создавался.");
+    private void FeedbackValidated(FeedbackModel model) => Toasts.Show("Форма корректна. Сообщение не отправлялось.");
+}

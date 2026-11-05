@@ -1,0 +1,8 @@
+<EditForm Model="model" OnValidSubmit="Valid" FormName="feedback" class="form-stack">
+    <DataAnnotationsValidator /><div class="form-grid"><HInput Label="Ваше имя" @bind-Value="model.Name" Required /><HInput Label="Email для ответа" Type="email" @bind-Value="model.Email" Required /></div><HTextArea Label="Сообщение" @bind-Value="model.Message" Placeholder="Чем мы можем помочь?" /><HButton Type="submit">Отправить сообщение <Icon Name="right" /></HButton>
+</EditForm>
+@code {
+    private readonly FeedbackModel model = new();
+    [Parameter] public EventCallback<FeedbackModel> OnValidated { get; set; }
+    private Task Valid() => OnValidated.InvokeAsync(model);
+}

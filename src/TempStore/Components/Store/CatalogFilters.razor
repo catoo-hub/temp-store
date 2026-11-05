@@ -1,0 +1,17 @@
+@inject CatalogService Catalog
+<div class="filter-panel">
+    <div class="row between"><h2>Фильтры</h2><HButton Variant="ghost" Size="sm" OnClick="Reset">Сбросить</HButton></div>
+    <HAccordion Title="Категория" Open>@foreach (var category in Catalog.Categories) { <HCheckbox Value="@(Filter.Categories.Contains(category))" ValueChanged="v => Toggle(Filter.Categories, category, v)">@category</HCheckbox> }</HAccordion>
+    <HAccordion Title="Бренд" Open>@foreach (var brand in Catalog.Brands) { <HCheckbox Value="@(Filter.Brands.Contains(brand.Name))" ValueChanged="v => Toggle(Filter.Brands, brand.Name, v)">@brand.Name</HCheckbox> }</HAccordion>
+    <HAccordion Title="Размер" Open><div class="size-filter">@foreach (var size in Catalog.Sizes) { <label><input type="checkbox" checked="@(Filter.Sizes.Contains(size))" @onchange="e => Toggle(Filter.Sizes, size, e.Value is true)" /><span>@size</span></label> }</div></HAccordion>
+    <HAccordion Title="Цена" Open><HSlider Value="Filter.MaxPrice" ValueChanged="SetPrice" /></HAccordion>
+    <div class="filter-discount"><HSwitch Value="Filter.DiscountOnly" ValueChanged="SetDiscount">Только со скидкой</HSwitch></div>
+</div>
+@code {
+    [Parameter, EditorRequired] public CatalogFilter Filter { get; set; } = default!;
+    [Parameter] public EventCallback Changed { get; set; }
+    private Task Toggle(HashSet<string> set, string item, bool value) { if (value) set.Add(item); else set.Remove(item); return Changed.InvokeAsync(); }
+    private Task SetPrice(int value) { Filter.MaxPrice = value; return Changed.InvokeAsync(); }
+    private Task SetDiscount(bool value) { Filter.DiscountOnly = value; return Changed.InvokeAsync(); }
+    private Task Reset() { Filter.Clear(); return Changed.InvokeAsync(); }
+}

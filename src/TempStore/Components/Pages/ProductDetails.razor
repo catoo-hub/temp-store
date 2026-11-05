@@ -1,0 +1,22 @@
+@page "/product/{Id:int}"
+@inject CatalogService Catalog
+@inject CartService Cart
+@inject ToastService Toasts
+<PageTitle>@(product?.Name ?? "Товар не найден") — ТЕМП</PageTitle>
+<div class="container">
+@if (product is null) { <EmptyState Title="Товар не найден" Description="Возможно, ссылка устарела."><a href="/catalog" class="button button--primary">Вернуться в каталог</a></EmptyState> }
+else {
+    <nav class="breadcrumb"><a href="/">Главная</a><span>/</span><a href="/catalog">Каталог</a><span>/</span><span>@product.Name</span></nav>
+    <div class="product-detail"><div class="detail-image"><img src="@product.Image" alt="@($"{product.Name}, {product.Color}")" width="600" height="690" /></div><div class="detail-copy"><p class="eyebrow">@product.Brand · @product.Category</p><h1>@product.Name</h1><div class="row">@if (product.IsNew) { <HChip Color="success">Новинка</HChip> } @if (product.Discount > 0) { <HChip Color="accent">Скидка @product.Discount%</HChip> }</div><div class="detail-price price">@CatalogService.Money(product.Price) @if (product.OldPrice.HasValue) { <del>@CatalogService.Money(product.OldPrice.Value)</del> }</div><p class="muted">Демонстрационный товар. Изображение показывает пример модели; характеристики поставщика ещё не добавлены.</p><p>Цвет: <strong>@product.Color</strong></p><SizePicker Sizes="product.Sizes" @bind-Value="size" /><HButton Variant="ghost" Size="sm" OnClick="() => sizeGuide = true">Таблица размеров ↗</HButton><HButton FullWidth Size="lg" Disabled="@(size.Length == 0)" OnClick="Add">@(size.Length == 0 ? "Выберите размер" : "Добавить в корзину") <Icon Name="bag" /></HButton><HAccordion Title="О товаре" Open><p>Модель: @product.Name. Бренд: @product.Brand. Доступные размеры: @string.Join(", ", product.Sizes).</p><p class="muted small">Состав и инструкции по уходу должны быть заполнены по данным поставщика перед публикацией магазина.</p></HAccordion><HAccordion Title="Доставка и возврат"><p>Условия доставки и возврата будут добавлены при запуске магазина. Сейчас доступны только демонстрационные сценарии.</p></HAccordion></div></div>
+    <section class="section"><div class="section-heading"><h2>Другие товары</h2><a href="/catalog" class="text-link">Весь каталог <Icon Name="right" /></a></div><div class="product-grid">@foreach (var item in Catalog.Products.Where(x => x.Id != Id).Take(4)) { <ProductCard Product="item" @key="item.Id" /> }</div></section>
+}
+</div>
+<HModal @bind-Open="sizeGuide" Title="Ориентировочная размерная сетка" Description="Пример таблицы. Сверяйте размеры с сеткой конкретного производителя."><div class="table-scroll"><table class="ui-table"><thead><tr><th scope="col">Размер</th><th scope="col">Грудь, см</th><th scope="col">Талия, см</th></tr></thead><tbody><tr><td>S</td><td>88–96</td><td>73–81</td></tr><tr><td>M</td><td>96–104</td><td>81–89</td></tr><tr><td>L</td><td>104–112</td><td>89–97</td></tr><tr><td>XL</td><td>112–124</td><td>97–109</td></tr></tbody></table></div></HModal>
+@code {
+    [Parameter] public int Id { get; set; }
+    private Product? product;
+    private string size = "";
+    private bool sizeGuide;
+    protected override void OnParametersSet() { product = Catalog.Find(Id); size = ""; }
+    private async Task Add() { try { await Cart.AddAsync(Id, size); Toasts.Show("Товар добавлен в корзину"); } catch (InvalidOperationException ex) { Toasts.Show(ex.Message, true); } }
+}

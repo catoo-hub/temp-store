@@ -1,0 +1,7 @@
+<div class="page-heading"><nav class="breadcrumb" aria-label="Навигационная цепочка"><a href="/">Главная</a><span aria-hidden="true">/</span><span aria-current="page">@Title</span></nav><div class="row between"><div>@if (Eyebrow is not null) { <p class="eyebrow">@Eyebrow</p> }<h1>@Title</h1>@if (Description is not null) { <p class="muted">@Description</p> }</div>@ChildContent</div></div>
+@code {
+ [Parameter] public string Title { get; set; } = "";
+ [Parameter] public string? Eyebrow { get; set; }
+ [Parameter] public string? Description { get; set; }
+ [Parameter] public RenderFragment? ChildContent { get; set; }
+}

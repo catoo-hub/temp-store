@@ -1,0 +1,8 @@
+<EditForm Model="model" OnValidSubmit="Valid" FormName="checkout" class="form-stack">
+    <DataAnnotationsValidator /><HInput Label="Имя получателя" @bind-Value="model.Name" autocomplete="name" Required /><div class="form-grid"><HInput Label="Email" Type="email" @bind-Value="model.Email" autocomplete="email" Required /><HInput Label="Телефон" Type="tel" @bind-Value="model.Phone" autocomplete="tel" Required /></div><HInput Label="Адрес доставки" @bind-Value="model.Address" autocomplete="street-address" Required /><HTextArea Label="Комментарий" @bind-Value="model.Comment" Placeholder="Например, удобное время доставки" /><HButton Type="submit" FullWidth>Проверить данные заказа</HButton>
+</EditForm>
+@code {
+    private readonly CheckoutModel model = new();
+    [Parameter] public EventCallback<CheckoutModel> OnValidated { get; set; }
+    private Task Valid() => OnValidated.InvokeAsync(model);
+}

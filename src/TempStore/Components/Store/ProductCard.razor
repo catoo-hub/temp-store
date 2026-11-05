@@ -1,0 +1,11 @@
+@inject CartService Cart
+@inject ToastService Toasts
+<article class="product-card"><a href="/product/@Product.Id" class="product-image" aria-label="@($"{Product.Brand} {Product.Name}, {CatalogService.Money(Product.Price)}")"><img src="@Product.Image" alt="@($"{Product.Name}, цвет {Product.Color}")" width="400" height="460" loading="lazy" /><div class="product-badges">@if (Product.IsNew) { <HChip Variant="primary">Новинка</HChip> } @if (Product.Discount > 0) { <HChip Color="accent" Variant="primary">−@Product.Discount%</HChip> }</div><span class="product-image-arrow"><Icon Name="right" /></span></a>
+<div class="product-info"><span class="product-brand">@Product.Brand <span class="muted">/ @Product.Category</span></span><a href="/product/@Product.Id" class="product-name">@Product.Name</a><div class="row between"><div class="price">@CatalogService.Money(Product.Price) @if (Product.OldPrice.HasValue) { <del>@CatalogService.Money(Product.OldPrice.Value)</del> }</div><HButton Variant="secondary" IconOnly aria-label="@($"Выбрать размер: {Product.Name}")" OnClick="() => open = true"><Icon Name="plus" /></HButton></div></div></article>
+<HModal @bind-Open="open" Title="@Product.Name" Description="Выберите размер перед добавлением в корзину."><div class="quick-product"><img src="@Product.Image" alt="@Product.Name" width="96" height="110" /><div><span class="eyebrow">@Product.Brand</span><h3>@CatalogService.Money(Product.Price)</h3><p class="muted">@Product.Color</p></div></div><SizePicker Sizes="Product.Sizes" @bind-Value="size" /><HButton FullWidth Disabled="@(size.Length == 0)" OnClick="Add">Добавить в корзину <Icon Name="bag" /></HButton></HModal>
+@code {
+ [Parameter, EditorRequired] public Product Product { get; set; } = default!;
+ private bool open;
+ private string size = "";
+ private async Task Add() { try { await Cart.AddAsync(Product.Id, size); open = false; Toasts.Show($"{Product.Name}, {size} — в корзине"); } catch (InvalidOperationException ex) { Toasts.Show(ex.Message, true); } }
+}

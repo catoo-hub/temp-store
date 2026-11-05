@@ -1,0 +1,8 @@
+<EditForm Model="model" OnValidSubmit="Valid" FormName="register-preview" class="form-stack">
+    <DataAnnotationsValidator /><HInput Label="Имя" @bind-Value="model.Name" autocomplete="name" Required /><HInput Label="Email" Type="email" @bind-Value="model.Email" autocomplete="username" Required /><HInput Label="Пароль" Type="password" @bind-Value="model.Password" autocomplete="new-password" Description="Не менее 8 символов. Не используйте настоящий пароль." Required /><HInput Label="Повторите пароль" Type="password" @bind-Value="model.Confirmation" autocomplete="new-password" Required /><HButton Type="submit" FullWidth>Проверить регистрацию</HButton>
+</EditForm>
+@code {
+    private readonly RegisterModel model = new();
+    [Parameter] public EventCallback<RegisterModel> OnValidated { get; set; }
+    private Task Valid() => OnValidated.InvokeAsync(model);
+}

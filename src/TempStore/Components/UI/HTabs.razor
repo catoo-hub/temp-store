@@ -1,0 +1,21 @@
+@inject IJSRuntime JS
+<div class="ui-tabs">
+    <div class="tab-list" role="tablist" aria-label="@Label" @ref="list">
+        @foreach (var item in Items)
+        {
+            <button type="button" role="tab" id="@(id + item.Id)" aria-selected="@((Value == item.Id).ToString().ToLowerInvariant())"
+                    aria-controls="@(id + "panel")" tabindex="@(Value == item.Id ? 0 : -1)" class="tab-button" @onclick="() => ValueChanged.InvokeAsync(item.Id)">@item.Label</button>
+        }
+    </div>
+    <div role="tabpanel" id="@(id + "panel")" aria-labelledby="@(id + Value)" tabindex="0" class="tab-panel">@ChildContent</div>
+</div>
+@code {
+    private ElementReference list;
+    private readonly string id = "tabs-" + Guid.NewGuid().ToString("N");
+    [Parameter] public string Label { get; set; } = "Разделы";
+    [Parameter, EditorRequired] public IReadOnlyList<TabOption> Items { get; set; } = [];
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender) await JS.InvokeVoidAsync("tempUi.tabs", list); }
+}

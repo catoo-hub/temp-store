@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject CartService Cart
+@inject IJSRuntime JS
+<a href="#main-content" class="skip-link">Перейти к содержимому</a>
+<header class="site-header"><div class="container header-inner">
+<div class="header-brand-nav">
+<a class="logo" href="/" aria-label="ТЕМП — главная">ТЕМП<span class="wordmark-dot" aria-hidden="true">.</span></a>
+<nav class="desktop-nav" aria-label="Главное меню"><NavLink href="/catalog">Каталог</NavLink><NavLink href="/new">Новинки</NavLink><NavLink href="/brands">Бренды</NavLink><NavLink href="/sale" class="sale-link">Акции</NavLink><a href="/#about">О нас</a></nav>
+</div>
+<div class="header-actions"><a href="/catalog" class="icon-link" aria-label="Поиск товаров"><Icon Name="search" /></a><HButton Variant="ghost" IconOnly OnClick="ToggleTheme" aria-label="@(dark ? "Светлая тема" : "Тёмная тема")"><Icon Name="@(dark ? "sun" : "moon")" /></HButton><a href="/account" class="icon-link" aria-label="Личный кабинет"><Icon Name="user" /></a><a href="/cart" class="cart-link" aria-label="@($"Корзина, товаров: {Cart.Count}")"><Icon Name="bag" /><span class="cart-label">Корзина</span><span class="cart-count">@Cart.Count</span></a><HButton Variant="ghost" IconOnly Class="mobile-menu-button" aria-label="Открыть меню" OnClick="() => menuOpen = true"><Icon Name="menu" /></HButton></div>
+</div></header>
+<main id="main-content" class="main-content">@Body</main>
+<footer class="site-footer photo-footer" @ref="footerElement">
+<img class="footer-photo" src="/images/hero.webp" alt="" width="1500" height="1000" loading="lazy" decoding="async" />
+<div class="container footer-grid">
+<div class="footer-intro"><a class="logo" href="/">ТЕМП<span class="wordmark-dot" aria-hidden="true">.</span></a><p>Спортивная одежда для тренировок<br />и обычных дней. В твоём темпе.</p><small>© ТЕМП. Магазин спортивной одежды.</small></div>
+<div><h2>Магазин</h2><a href="/catalog">Каталог</a><a href="/new">Новинки</a><a href="/sale">Акции</a><a href="/brands">Бренды</a></div>
+<div><h2>Покупателям</h2><a href="/#about">О магазине</a><a href="/reviews">Отзывы</a><a href="/#contacts">Связаться с нами</a><a href="/account">Личный кабинет</a></div>
+<div><h2>Бренды</h2><a href="/catalog?brand=Nike">Nike</a><a href="/catalog?brand=Adidas">Adidas</a></div>
+</div></footer>
+<HModal @bind-Open="menuOpen" Sheet Title="Меню"><nav class="mobile-nav" aria-label="Мобильное меню" @onclick="() => menuOpen = false"><a href="/">Главная</a><a href="/catalog">Каталог</a><a href="/new">Новинки</a><a href="/brands">Бренды</a><a href="/sale">Акции</a><a href="/#about">О нас</a><a href="/reviews">Отзывы</a><a href="/#contacts">Связаться с нами</a></nav></HModal>
+<HToasts />
+<div id="blazor-error-ui" role="alert">Соединение прервано. <a href="" class="reload">Перезагрузить страницу</a></div>
+@code {
+ private bool menuOpen, dark;
+ private ElementReference footerElement;
+ protected override void OnInitialized() => Cart.Changed += Refresh;
+ protected override async Task OnAfterRenderAsync(bool firstRender) { if (!firstRender) return; await JS.InvokeVoidAsync("tempUi.footerReveal", footerElement); await Cart.LoadAsync(); dark = await JS.InvokeAsync<bool>("tempUi.isDark"); StateHasChanged(); }
+ private async Task ToggleTheme() { dark = !dark; await JS.InvokeVoidAsync("tempUi.theme", dark); }
+ private void Refresh() => InvokeAsync(StateHasChanged);
+ public void Dispose() => Cart.Changed -= Refresh;
+}

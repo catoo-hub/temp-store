@@ -1,0 +1,19 @@
+@page "/cart"
+@implements IDisposable
+@inject CartService Cart
+@inject CatalogService Catalog
+<PageTitle>Корзина — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Корзина" />
+@if (!Cart.IsLoaded) { <div aria-busy="true" aria-label="Загружаем корзину"><HSkeleton Height="180px" /><HSkeleton Height="80px" /></div> }
+else if (Cart.Count == 0) { <EmptyState Title="Корзина пуста" Description="Добавьте товары из каталога. Размер можно выбрать в карточке."><a href="/catalog" class="button button--primary">Перейти в каталог <Icon Name="right" /></a></EmptyState> }
+else {
+    @if (Cart.StorageUnavailable) { <HAlert Tone="warning">Браузер запретил сохранение. Корзина доступна до закрытия страницы.</HAlert> }
+    <div class="cart-layout"><div>@foreach (var line in Cart.Lines.ToArray()) { var product = Catalog.Find(line.ProductId)!;<article class="cart-item" @key="(line.ProductId, line.Size)"><a href="/product/@product.Id"><img src="@product.Image" alt="@product.Name" width="120" height="138" /></a><div class="cart-item-info"><p class="eyebrow">@product.Brand</p><a href="/product/@product.Id"><h2>@product.Name</h2></a><p class="muted small">@product.Color · Размер @line.Size</p><QuantityPicker Value="line.Quantity" ValueChanged="q => Cart.SetQuantityAsync(line.ProductId, line.Size, q)" Label="@($"Количество: {product.Name}, {line.Size}")" /></div><div class="cart-item-end"><strong>@CatalogService.Money(product.Price * line.Quantity)</strong><HButton Variant="ghost" IconOnly aria-label="@($"Удалить {product.Name}, размер {line.Size}")" OnClick="() => Cart.SetQuantityAsync(line.ProductId, line.Size, 0)"><Icon Name="trash" /></HButton></div></article> }<a href="/catalog" class="text-link"><Icon Name="left" /> Продолжить покупки</a></div>
+    <HCard Class="order-summary"><h2>Сумма заказа</h2><div class="summary-line"><span>Товары (@Cart.Count)</span><span>@CatalogService.Money(Cart.Subtotal)</span></div><div class="summary-line"><span>Скидка</span><span class="accent-text">−@CatalogService.Money(Cart.Savings)</span></div><div class="summary-line"><span>Доставка</span><span>Не рассчитана</span></div><hr /><div class="summary-line summary-total"><span>Итого</span><span>@CatalogService.Money(Cart.Total)</span></div><a href="/checkout" class="button button--primary button--full-width">К оформлению <Icon Name="right" /></a><p class="muted small">Пока доступна только проверка формы. Заказ не будет создан.</p></HCard></div>
+}
+</div>
+@code {
+    protected override void OnInitialized() => Cart.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Cart.Changed -= Refresh;
+}

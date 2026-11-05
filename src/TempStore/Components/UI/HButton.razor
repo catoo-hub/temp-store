@@ -1,0 +1,18 @@
+<button @attributes="Attributes" type="@Type" class="button button--@Variant button--@Size @(FullWidth ? "button--full-width" : "") @(IconOnly ? "button--icon-only" : "") @Class"
+        disabled="@(Disabled || Loading)" aria-busy="@Loading.ToString().ToLowerInvariant()" @onclick="OnClick">
+    @if (Loading) { <HSpinner Label="Выполняется" /> }
+    @ChildContent
+</button>
+@code {
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public string Size { get; set; } = "md";
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool FullWidth { get; set; }
+    [Parameter] public bool IconOnly { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Attributes { get; set; }
+}

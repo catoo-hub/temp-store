@@ -1,0 +1,24 @@
+@implements IDisposable
+@inject ToastService Toasts
+<div class="toast-region" aria-live="polite" aria-atomic="false">
+    @foreach (var toast in messages)
+    {
+        <div class="ui-toast" @key="toast.Id"><Icon Name="@(toast.IsError ? "info" : "check")" /><span>@toast.Text</span><HButton Variant="ghost" IconOnly aria-label="Закрыть уведомление" OnClick="() => messages.Remove(toast)"><Icon Name="close" /></HButton></div>
+    }
+</div>
+@code {
+    private readonly List<ToastMessage> messages = [];
+    private readonly CancellationTokenSource lifetime = new();
+    protected override void OnInitialized() => Toasts.Raised += Show;
+    private async void Show(ToastMessage message)
+    {
+        try
+        {
+            await InvokeAsync(() => { messages.Add(message); if (messages.Count > 3) messages.RemoveAt(0); StateHasChanged(); });
+            await Task.Delay(6000, lifetime.Token);
+            await InvokeAsync(() => { messages.Remove(message); StateHasChanged(); });
+        }
+        catch (OperationCanceledException) { }
+    }
+    public void Dispose() { Toasts.Raised -= Show; lifetime.Cancel(); lifetime.Dispose(); }
+}

@@ -1,0 +1,4 @@
+@page "/brands"
+@inject CatalogService Catalog
+<PageTitle>Бренды — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Бренды" Description="Выберите бренд, чтобы посмотреть его товары." /><div class="brand-cards">@foreach (var brand in Catalog.Brands) { <a class="brand-card" href="@($"/catalog?brand={Uri.EscapeDataString(brand.Name)}")"><h2>@brand.Name</h2><p class="muted">@brand.Description</p><span class="text-link">@Catalog.Products.Count(x => x.Brand == brand.Name) моделей в каталоге <Icon Name="right" /></span></a> }</div></div>

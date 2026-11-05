@@ -1,0 +1,17 @@
+@page "/reviews"
+@inject CatalogService Catalog
+@inject ToastService Toasts
+<PageTitle>Отзывы — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Отзывы"><HButton OnClick="() => open = true">Пример формы отзыва <Icon Name="plus" /></HButton></PageHeading><p class="muted">Отзывы о покупках появятся после запуска магазина. Оставить отзыв можно будет после получения заказа.</p><EmptyState Title="Отзывов пока нет" Description="Форму добавления можно посмотреть по кнопке выше." IconName="star" /></div>
+<HModal @bind-Open="open" Title="Пример отзыва" Description="Отзыв не публикуется. Проверка покупки будет выполняться на сервере."><EditForm Model="model" OnValidSubmit="Validate" FormName="review-preview" class="form-stack"><DataAnnotationsValidator /><HInput Label="Ваше имя" @bind-Value="model.Name" Required /><HSelect Label="Товар" @bind-Value="model.Product"><option value="">Выберите товар</option>@foreach (var p in Catalog.Products) { <option>@p.Name</option> }</HSelect><HSelect Label="Оценка" @bind-Value="model.Rating"><option value="5">5 — Отлично</option><option value="4">4 — Хорошо</option><option value="3">3 — Нормально</option><option value="2">2 — Плохо</option><option value="1">1 — Очень плохо</option></HSelect><HTextArea Label="Впечатления" @bind-Value="model.Text" /><HButton Type="submit" FullWidth>Проверить отзыв</HButton></EditForm></HModal>
+@code {
+    private bool open;
+    private readonly ReviewModel model = new();
+    private void Validate() { open = false; Toasts.Show("Форма корректна. Отзыв не опубликован."); }
+    private sealed class ReviewModel {
+        [Required(ErrorMessage = "Укажите имя")] public string Name { get; set; } = "";
+        [Required(ErrorMessage = "Выберите товар")] public string Product { get; set; } = "";
+        public string Rating { get; set; } = "5";
+        [Required(ErrorMessage = "Напишите отзыв"), StringLength(2000)] public string Text { get; set; } = "";
+    }
+}

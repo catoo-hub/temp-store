@@ -1,0 +1,8 @@
+<EditForm Model="model" OnValidSubmit="Valid" FormName="login-preview" class="form-stack">
+    <DataAnnotationsValidator /><HInput Label="Email" Type="email" @bind-Value="model.Email" autocomplete="username" Required /><HInput Label="Пароль" Type="password" @bind-Value="model.Password" autocomplete="current-password" Description="Для демонстрации используйте вымышленный пароль." Required /><HButton Type="submit" FullWidth>Проверить форму входа <Icon Name="right" /></HButton>
+</EditForm>
+@code {
+    private readonly LoginModel model = new();
+    [Parameter] public EventCallback<LoginModel> OnValidated { get; set; }
+    private Task Valid() => OnValidated.InvokeAsync(model);
+}

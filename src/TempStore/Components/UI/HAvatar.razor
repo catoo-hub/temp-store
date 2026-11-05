@@ -1,0 +1,5 @@
+<span class="avatar avatar--md" aria-label="@Name"><span class="avatar__fallback">@Initials</span></span>
+@code {
+    [Parameter] public string Name { get; set; } = "Пользователь";
+    private string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant();
+}

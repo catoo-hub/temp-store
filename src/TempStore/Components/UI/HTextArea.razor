@@ -1,0 +1,13 @@
+@inherits InputBase<string>
+<div class="field">
+    <label class="label" for="@id">@Label</label>
+    <textarea @attributes="AdditionalAttributes" id="@id" class="textarea @CssClass" rows="@Rows" value="@CurrentValueAsString" @oninput="e => CurrentValueAsString = e.Value?.ToString()" placeholder="@Placeholder"></textarea>
+    @if (ValueExpression is not null && EditContext is not null) { <ValidationMessage For="ValueExpression" /> }
+</div>
+@code {
+    private readonly string id = "textarea-" + Guid.NewGuid().ToString("N");
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int Rows { get; set; } = 4;
+    protected override bool TryParseValueFromString(string? value, out string result, [System.Diagnostics.CodeAnalysis.NotNullWhen(false)] out string? error) { result = value ?? ""; error = null; return true; }
+}

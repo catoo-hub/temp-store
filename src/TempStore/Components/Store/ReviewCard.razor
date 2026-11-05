@@ -1,0 +1,2 @@
+<HCard Class="review-card"><div class="row between"><div class="row"><HAvatar Name="@Review.Name" /><div><strong>@Review.Name</strong><p class="muted small">@Review.Date.ToString("dd.MM.yyyy")</p></div></div><span class="stars" aria-label="@($"Оценка {Review.Rating} из 5")">@for (var i = 0; i < Review.Rating; i++) { <Icon Name="star" Size="13" /> }</span></div><p>@Review.Text</p><span class="muted small">@Review.Product · пример отзыва</span></HCard>
+@code { [Parameter, EditorRequired] public Review Review { get; set; } = default!; }

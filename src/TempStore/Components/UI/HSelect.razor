@@ -1,0 +1,14 @@
+@inherits InputBase<string>
+<div class="field">
+    <label class="label" for="@id">@Label</label>
+    <select @attributes="AdditionalAttributes" id="@id" class="input native-select @CssClass" value="@CurrentValueAsString" @onchange="e => CurrentValueAsString = e.Value?.ToString()">
+        @ChildContent
+    </select>
+    @if (ValueExpression is not null && EditContext is not null) { <ValidationMessage For="ValueExpression" /> }
+</div>
+@code {
+    private readonly string id = "select-" + Guid.NewGuid().ToString("N");
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    protected override bool TryParseValueFromString(string? value, out string result, [System.Diagnostics.CodeAnalysis.NotNullWhen(false)] out string? error) { result = value ?? ""; error = null; return true; }
+}

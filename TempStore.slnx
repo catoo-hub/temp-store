@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TempStore/TempStore.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TempStore.Checks/TempStore.Checks.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,17 @@
+@page "/checkout"
+@implements IDisposable
+@inject CartService Cart
+<PageTitle>Оформление заказа — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Оформление заказа" /><HAlert Title="Предпросмотр оформления">Форма проверяет ввод локально. Авторизация, создание заказа в базе и расчёт доставки ещё не подключены. Используйте вымышленные данные.</HAlert>
+@if (!Cart.IsLoaded) { <HSkeleton Height="200px" /> }
+else if (Cart.Count == 0) { <EmptyState Title="Сначала выберите товары" Description="Для проверки оформления добавьте хотя бы один товар."><a href="/catalog" class="button button--primary">В каталог</a></EmptyState> }
+else { <div class="checkout-layout"><HCard><h2>Контактные данные</h2><CheckoutForm OnValidated="Validated" /></HCard><HCard Class="order-summary"><h2>Состав заказа</h2><div class="summary-line"><span>Количество</span><strong>@Cart.Count</strong></div><div class="summary-line summary-total"><span>Товары</span><strong>@CatalogService.Money(Cart.Total)</strong></div><p class="muted small">Доставка не включена. Корзина сохранится после проверки формы.</p></HCard></div> }
+</div>
+<HModal @bind-Open="validated" Title="Данные прошли проверку" Description="Это результат проверки формы, а не подтверждение заказа."><HAlert Tone="success">Обязательные поля заполнены. Для реального оформления потребуется подключить серверный обработчик заказов.</HAlert><HButton FullWidth OnClick="() => validated = false">Вернуться к форме</HButton></HModal>
+@code {
+    private bool validated;
+    private void Validated(CheckoutModel model) => validated = true;
+    protected override void OnInitialized() => Cart.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Cart.Changed -= Refresh;
+}

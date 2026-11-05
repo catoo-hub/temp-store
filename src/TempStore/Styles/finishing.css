@@ -1,0 +1,62 @@
+/* Small, consistent radii for controls and product surfaces. */
+:root { --radius:.5rem; }
+.button,.button--icon-only,.input,.textarea,.quantity-picker,.size-option span,.size-filter span,.tab-list,.tab-button { border-radius:8px; }
+.card,.product-image,.detail-image,.cart-item img,.quick-product img,.brand-card,.order-summary,.table-scroll,.ui-alert,.ui-toast { border-radius:12px; }
+.product-info .button { border-radius:8px; }
+.chip,.product-badges .chip { border-radius:5px; }
+.hero-dialog { border-radius:16px; }
+.hero-sheet { border-radius:16px 0 0 16px; }
+.hero-product,.hero-product img { border-radius:12px; }
+.filter-discount { padding:24px 0; }
+.filter-discount .switch-field { display:flex; min-height:28px; gap:12px; line-height:1.5; }
+.filter-discount .switch-track { flex-shrink:0; }
+
+/* Two independent navigation pills, with the cart as the primary action. */
+.site-header { position:sticky; top:0; z-index:40; background:transparent; border:0; padding-block:22px 8px; pointer-events:none; }
+.header-brand-nav,.header-actions { pointer-events:auto; }
+html { scroll-padding-top:100px; }
+.header-inner { height:auto; min-height:50px; gap:20px; }
+.header-brand-nav,.header-actions {
+    display:flex;
+    align-items:center;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:0 2px 4px #00000007,0 5px 14px #00000003;
+}
+.header-brand-nav { padding:7px 12px 7px 18px; gap:18px; }
+.site-header .logo { font-size:23px; flex-shrink:0; }
+.desktop-nav { margin:0; padding-left:16px; border-left:1px solid var(--border); gap:5px; }
+.desktop-nav a { padding:8px 11px; font-family:var(--font-sans); font-weight:400; border-radius:9px; white-space:nowrap; }
+.desktop-nav a:hover,.desktop-nav .active { text-decoration:none; background:var(--default); }
+.header-actions { padding:6px; gap:3px; flex-shrink:0; }
+.header-actions .icon-link,.header-actions .button--icon-only { width:34px; height:34px; min-height:34px; border-radius:9px; }
+.header-actions .icon-link:hover { background:var(--default); }
+.header-actions .cart-link { padding:8px 12px; height:36px; gap:8px; background:var(--accent); color:var(--accent-foreground); border-radius:10px; }
+.header-actions .cart-link:hover { background:var(--accent-hover); }
+.header-actions .cart-count { background:transparent; color:inherit; width:auto; height:auto; line-height:1; border-radius:0; }
+.header-actions .cart-label { font-size:12px; }
+@media(max-width:1100px) {
+    .header-brand-nav { padding-left:12px; gap:12px; }
+    .desktop-nav { padding-left:12px; gap:0; }
+    .desktop-nav a { padding-inline:8px; font-size:12px; }
+    .header-actions .cart-label { display:none; }
+}
+@media(max-width:900px) {
+    .desktop-nav { display:none; }
+    .mobile-menu-button { display:inline-flex; }
+    .header-brand-nav { min-height:50px; padding-inline:15px; }
+}
+@media(max-width:540px) {
+    .site-header { padding-block:14px 4px; }
+    .header-inner { gap:8px; }
+    .header-brand-nav { padding-inline:12px; }
+    .site-header .logo { font-size:22px; }
+    .header-actions { gap:1px; }
+    .header-actions .cart-link { padding-inline:9px; gap:5px; }
+}
+@media(max-width:360px) {
+    .header-brand-nav { padding-inline:9px; }
+    .site-header .logo { font-size:20px; }
+    .header-actions .icon-link,.header-actions .button--icon-only { width:30px; }
+}

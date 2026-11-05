@@ -1,0 +1,29 @@
+@inject IJSRuntime JS
+<dialog @ref="dialog" class="hero-dialog @(Sheet ? "hero-sheet" : "")" aria-labelledby="@titleId" aria-describedby="@(Description is null ? null : titleId + "-description")" @oncancel="Close" @onclose="OnNativeClose">
+    <div class="dialog-heading row between">
+        <div><h2 id="@titleId">@Title</h2>@if (Description is not null) { <p id="@(titleId + "-description")" class="muted small">@Description</p> }</div>
+        <HButton Variant="ghost" IconOnly aria-label="Закрыть окно" OnClick="Close"><Icon Name="close" /></HButton>
+    </div>
+    <div class="dialog-content">@ChildContent</div>
+    @if (Footer is not null) { <div class="dialog-footer">@Footer</div> }
+</dialog>
+@code {
+    private ElementReference dialog;
+    private bool? lastOpen;
+    private readonly string titleId = "modal-" + Guid.NewGuid().ToString("N");
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public bool Sheet { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (lastOpen == Open) return;
+        lastOpen = Open;
+        await JS.InvokeVoidAsync("tempUi.dialog", dialog, Open);
+    }
+    private Task Close() => OpenChanged.InvokeAsync(false);
+    private Task OnNativeClose() => Open ? Close() : Task.CompletedTask;
+}

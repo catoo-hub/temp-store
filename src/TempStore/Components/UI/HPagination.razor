@@ -1,0 +1,16 @@
+@if (TotalPages > 1)
+{
+    <nav class="pagination row" aria-label="Страницы каталога">
+        <HButton Variant="ghost" IconOnly Disabled="@(Page <= 1)" aria-label="Предыдущая страница" OnClick="() => PageChanged.InvokeAsync(Page - 1)"><Icon Name="left" /></HButton>
+        @foreach (var number in Enumerable.Range(1, TotalPages))
+        {
+            <HButton Variant="@(number == Page ? "primary" : "ghost")" aria-label="@($"Страница {number}")" aria-current="@(number == Page ? "page" : null)" OnClick="() => PageChanged.InvokeAsync(number)">@number</HButton>
+        }
+        <HButton Variant="ghost" IconOnly Disabled="@(Page >= TotalPages)" aria-label="Следующая страница" OnClick="() => PageChanged.InvokeAsync(Page + 1)"><Icon Name="right" /></HButton>
+    </nav>
+}
+@code {
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public EventCallback<int> PageChanged { get; set; }
+}

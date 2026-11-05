@@ -1,0 +1,5 @@
+@page "/contacts"
+@inject ToastService Toasts
+<PageTitle>Контакты — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Контакты" /><HAlert>Учебный проект. Контакты магазина ещё не заданы, сообщения не отправляются. Используйте вымышленные данные для проверки формы.</HAlert><div class="info-grid"><HCard><h2>Контактная информация</h2><p class="muted">Адрес, телефон, email и часы работы добавит владелец магазина.</p><div class="map-placeholder"><Icon Name="pin" Size="36" /><strong>Место для карты магазина</strong><p class="muted small">Карта появится после указания реального адреса.</p></div></HCard><HCard><h2>Обратная связь</h2><FeedbackForm OnValidated="Validated" /></HCard></div></div>
+@code { private void Validated(FeedbackModel model) => Toasts.Show("Форма проверена. Отправка сообщений ещё не подключена."); }

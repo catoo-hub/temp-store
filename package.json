@@ -1,0 +1,13 @@
+{
+  "name": "temp-store-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/TempStore/Styles/app.css -o ./src/TempStore/wwwroot/app.css --minify",
+    "watch:css": "tailwindcss -i ./src/TempStore/Styles/app.css -o ./src/TempStore/wwwroot/app.css --watch"
+  },
+  "devDependencies": {
+    "@heroui/styles": "3.2.7",
+    "@tailwindcss/cli": "4.2.1",
+    "tailwindcss": "4.2.1"
+  }
+}

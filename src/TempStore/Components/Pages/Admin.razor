@@ -1,0 +1,62 @@
+@page "/admin"
+@inject CatalogService Catalog
+@inject ToastService Toasts
+<PageTitle>Административная панель — ТЕМП</PageTitle>
+<div class="container"><PageHeading Title="Управление магазином" Eyebrow="ПРЕДПРОСМОТР АДМИН-ПАНЕЛИ"><HSelect Label="Показать интерфейс роли" @bind-Value="role" @bind-Value:after="RoleChanged"><option>Администратор</option><option>Менеджер</option></HSelect></PageHeading>
+<HAlert Title="Демонстрация компонентов">Здесь только вымышленные данные. Изменения сбрасываются при перезагрузке и не влияют на витрину. Переключатель роли показывает варианты интерфейса; авторизация и серверная проверка прав ещё не реализованы.</HAlert>
+<div class="stat-grid"><HCard><p class="muted small">Товаров в примере</p><strong class="stat-value">@products.Count</strong></HCard><HCard><p class="muted small">Заказов в примере</p><strong class="stat-value">@orders.Count</strong></HCard><HCard><p class="muted small">На модерации</p><strong class="stat-value">@reviews.Count(x => x.Status == "На модерации")</strong></HCard></div>
+<HTabs Items="VisibleTabs" @bind-Value="tab" Label="Разделы админ-панели">
+@if (tab == "products") {
+    <div class="admin-toolbar"><HInput Label="Поиск по товарам" @bind-Value="search" Placeholder="Название или бренд" /><HButton OnClick="CreateProduct"><Icon Name="plus" /> Добавить товар</HButton></div>
+    <HTable TItem="Product" Items="FilteredProducts" Columns="6" Caption="Управление товарами"><Header><th scope="col">Товар</th><th scope="col">Категория</th><th scope="col">Цена</th><th scope="col">Бренд</th><th scope="col">Новинка</th><th scope="col">Действия</th></Header><Row Context="p"><td><div class="table-product"><img src="@p.Image" alt="" /><strong>@p.Name</strong></div></td><td>@p.Category</td><td>@CatalogService.Money(p.Price)</td><td>@p.Brand</td><td><HChip Color="@(p.IsNew ? "success" : "default")">@(p.IsNew ? "Да" : "Нет")</HChip></td><td><div class="row"><HButton Variant="ghost" IconOnly aria-label="@($"Редактировать {p.Name}")" OnClick="() => EditProduct(p)"><Icon Name="edit" /></HButton><HButton Variant="danger-soft" IconOnly aria-label="@($"Удалить {p.Name}")" OnClick="() => AskDelete(p)"><Icon Name="trash" /></HButton></div></td></Row></HTable>
+}
+else if (tab == "orders") { <OrderTable Orders="orders" Editable OnStatusChanged="ChangeStatus" /> }
+else if (tab == "users") {
+    <HTable TItem="UserPreview" Items="users" Columns="3" Caption="Пользователи и роли"><Header><th scope="col">Пользователь</th><th scope="col">Email</th><th scope="col">Роль</th></Header><Row Context="user"><td><div class="row"><HAvatar Name="@user.Name" />@user.Name</div></td><td>@user.Email</td><td><select class="input native-select" aria-label="@($"Роль пользователя {user.Name}")" @bind="user.Role" @bind:after="NotifyChange"><option>Пользователь</option><option>Менеджер</option><option>Администратор</option></select></td></Row></HTable>
+}
+else if (tab == "brands") {
+    <HTable TItem="Brand" Items="Catalog.Brands" Columns="3" Caption="Бренды"><Header><th scope="col">Бренд</th><th scope="col">Описание</th><th scope="col">Товаров</th></Header><Row Context="brand"><td><strong>@brand.Name</strong></td><td>@brand.Description</td><td>@products.Count(x => x.Brand == brand.Name)</td></Row></HTable><p class="muted small demo-section">Для редактора бренда можно использовать HInput, HTextArea и HModal из набора компонентов.</p>
+}
+else if (tab == "promotions") {
+    <HTable TItem="PromotionPreview" Items="promotions" Columns="4" Caption="Акции"><Header><th scope="col">Акция</th><th scope="col">Скидка</th><th scope="col">Период</th><th scope="col">Включена</th></Header><Row Context="promotion"><td>@promotion.Name</td><td>@promotion.Discount</td><td>02.11–14.11.2026</td><td><HSwitch @bind-Value="promotion.Enabled" @bind-Value:after="NotifyChange">@promotion.Name</HSwitch></td></Row></HTable>
+}
+else if (tab == "reviews") {
+    <HTable TItem="ReviewPreview" Items="reviews" Columns="4" Caption="Модерация отзывов"><Header><th scope="col">Автор</th><th scope="col">Отзыв</th><th scope="col">Статус</th><th scope="col">Действия</th></Header><Row Context="review"><td>@review.Name</td><td class="review-cell">@review.Text</td><td><StatusChip Status="@review.Status" /></td><td>@if (role == "Администратор") { <div class="row"><HButton Variant="secondary" Size="sm" Disabled="@(review.Status == "Опубликован")" OnClick="() => Moderate(review, true)">Одобрить</HButton><HButton Variant="danger-soft" Size="sm" Disabled="@(review.Status == "Отклонён")" OnClick="() => Moderate(review, false)">Отклонить</HButton></div> } else { <span class="muted">Только просмотр</span> }</td></Row></HTable>
+}
+</HTabs>
+</div>
+<HModal @bind-Open="editing" Title="@(editingId == 0 ? "Новый товар" : "Редактирование товара")" Description="Изменения применяются только к таблице предпросмотра."><ProductForm Model="editModel" OnSave="SaveProduct" @key="editModel" /></HModal>
+<HModal @bind-Open="deleting" Title="Удалить товар из примера?" Description="Товар исчезнет из этой таблицы до перезагрузки страницы."><p>@deleteProduct?.Name</p><div class="row demo-section"><HButton Variant="secondary" OnClick="() => deleting = false">Отмена</HButton><HButton Variant="danger" OnClick="DeleteProduct">Удалить</HButton></div></HModal>
+@code {
+    private string role = "Администратор", tab = "products", search = "";
+    private List<Product> products = [];
+    private List<OrderRow> orders = [];
+    private List<ReviewPreview> reviews = [];
+    private bool editing, deleting;
+    private int editingId;
+    private Product? deleteProduct;
+    private ProductEditModel editModel = new();
+    private readonly List<UserPreview> users = [new("Анна Смирнова", "anna@example.test", "Пользователь"), new("Иван Петров", "manager@example.test", "Менеджер"), new("Администратор", "admin@example.test", "Администратор")];
+    private readonly List<PromotionPreview> promotions = [new("Осенний старт", "до 25%", true), new("Комплект для зала", "10%", false)];
+    private readonly TabOption[] tabs = [new("products", "Товары"), new("orders", "Заказы"), new("users", "Пользователи"), new("promotions", "Акции"), new("brands", "Бренды"), new("reviews", "Отзывы")];
+    private IReadOnlyList<TabOption> VisibleTabs => role == "Менеджер" ? tabs.Where(x => x.Id is "orders" or "reviews").ToArray() : tabs;
+    private IEnumerable<Product> FilteredProducts => products.Where(x => $"{x.Name} {x.Brand}".Contains(search, StringComparison.OrdinalIgnoreCase));
+    protected override void OnInitialized() { products = Catalog.Products.ToList(); orders = Catalog.Orders.ToList(); reviews = Catalog.Reviews.Select(x => new ReviewPreview(x.Name, x.Text)).ToList(); }
+    private void RoleChanged() { if (!VisibleTabs.Any(x => x.Id == tab)) tab = "orders"; }
+    private void CreateProduct() { editingId = 0; editModel = new(); editing = true; }
+    private void EditProduct(Product p) { editingId = p.Id; editModel = new() { Name = p.Name, Brand = p.Brand, Category = p.Category, Price = p.Price, IsNew = p.IsNew }; editing = true; }
+    private void SaveProduct(ProductEditModel model)
+    {
+        if (editingId == 0) products.Add(new(products.Select(x => x.Id).DefaultIfEmpty(0).Max() + 1, model.Name, model.Brand, model.Category, model.Price, null, "/images/tshirt.webp", "Не задан", ["S", "M", "L"], model.IsNew));
+        else { var i = products.FindIndex(x => x.Id == editingId); products[i] = products[i] with { Name = model.Name, Brand = model.Brand, Category = model.Category, Price = model.Price, OldPrice = null, IsNew = model.IsNew }; }
+        editing = false; NotifyChange();
+    }
+    private void AskDelete(Product p) { deleteProduct = p; deleting = true; }
+    private void DeleteProduct() { if (deleteProduct is not null) products.Remove(deleteProduct); deleting = false; NotifyChange(); }
+    private void ChangeStatus(OrderRow row) { var i = orders.FindIndex(x => x.Number == row.Number); orders[i] = row; NotifyChange(); }
+    private void Moderate(ReviewPreview review, bool approve) { review.Status = approve ? "Опубликован" : "Отклонён"; NotifyChange(); }
+    private void NotifyChange() => Toasts.Show("Предпросмотр обновлён. В базе данных ничего не изменено.");
+    private sealed class UserPreview(string name, string email, string role) { public string Name { get; } = name; public string Email { get; } = email; public string Role { get; set; } = role; }
+    private sealed class PromotionPreview(string name, string discount, bool enabled) { public string Name { get; } = name; public string Discount { get; } = discount; public bool Enabled { get; set; } = enabled; }
+    private sealed class ReviewPreview(string name, string text) { public string Name { get; } = name; public string Text { get; } = text; public string Status { get; set; } = "На модерации"; }
+}

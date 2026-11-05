@@ -1,0 +1,15 @@
+<div class="field">
+    <label for="@id" class="label row between">@Label <output>@CatalogService.Money(Value)</output></label>
+    <input id="@id" class="range-input" type="range" min="@Min" max="@Max" step="@Step" value="@Value" @oninput="Change" />
+    <div class="row between muted small"><span>@CatalogService.Money(Min)</span><span>@CatalogService.Money(Max)</span></div>
+</div>
+@code {
+    private readonly string id = "slider-" + Guid.NewGuid().ToString("N");
+    [Parameter] public string Label { get; set; } = "Цена до";
+    [Parameter] public int Min { get; set; }
+    [Parameter] public int Max { get; set; } = 15000;
+    [Parameter] public int Step { get; set; } = 100;
+    [Parameter] public int Value { get; set; } = 15000;
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+    private Task Change(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var value) ? ValueChanged.InvokeAsync(Math.Clamp(value, Min, Max)) : Task.CompletedTask;
+}

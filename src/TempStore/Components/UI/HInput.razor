@@ -1,0 +1,20 @@
+@inherits InputBase<string>
+<div class="field">
+    <label class="label" for="@inputId">@Label @if (Required) { <span aria-hidden="true">*</span> }</label>
+    <input @attributes="AdditionalAttributes" id="@inputId" class="input @CssClass" type="@Type" placeholder="@Placeholder"
+           value="@CurrentValueAsString" @oninput="HandleInput" disabled="@Disabled" required="@Required"
+           aria-describedby="@(Description is null ? null : inputId + "-hint")" />
+    @if (Description is not null) { <small class="description" id="@(inputId + "-hint")">@Description</small> }
+    @if (ValueExpression is not null && EditContext is not null) { <ValidationMessage For="ValueExpression" /> }
+</div>
+@code {
+    private readonly string inputId = "input-" + Guid.NewGuid().ToString("N");
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Required { get; set; }
+    private void HandleInput(ChangeEventArgs e) => CurrentValueAsString = e.Value?.ToString();
+    protected override bool TryParseValueFromString(string? value, out string result, [System.Diagnostics.CodeAnalysis.NotNullWhen(false)] out string? error) { result = value ?? ""; error = null; return true; }
+}
