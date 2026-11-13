@@ -43,8 +43,56 @@
 
             <section class="account-panel account-orders" aria-labelledby="orders-title">
                 <h2 id="orders-title">Мои заказы</h2>
-                <p class="muted">У вас пока нет заказов.</p>
-                <a href="/catalog" class="text-link">Перейти в каталог <Icon Name="right" /></a>
+                @if (ordersLoading)
+                {
+                    <HSpinner Label="Загружаем заказы" />
+                }
+                else if (orders is null)
+                {
+                    <p class="muted">Не удалось загрузить заказы.</p>
+                    <HButton Variant="secondary" OnClick="LoadOrders">Попробовать снова</HButton>
+                }
+                else if (orders.Length == 0)
+                {
+                    <p class="muted">У вас пока нет заказов.</p>
+                    <a href="/catalog" class="text-link">Перейти в каталог <Icon Name="right" /></a>
+                }
+                else
+                {
+                    @foreach (var order in orders)
+                    {
+                        <article class="order-card" @key="order.Id">
+                            <div class="order-heading">
+                                <h3>Заказ №@order.Id</h3>
+                                <time datetime="@order.CreatedAt">@OrderDate(order.CreatedAt)</time>
+                            </div>
+                            <div class="order-heading">
+                                <span>@OrderStatus.Label(order.Status)</span>
+                                <strong>@CatalogService.Money(order.Total)</strong>
+                            </div>
+                            <p class="muted small">@(order.Paid ? "Оплачено (тест)" : "Не оплачен")</p>
+                            <details class="order-details" open="@(order.Id == SelectedOrderId)">
+                                <summary>Состав и доставка</summary>
+                                <OrderDetails Order="order" />
+                            </details>
+                            @if (!order.Paid && order.Status != "cancelled")
+                            {
+                                <div class="order-payment">
+                                    <p class="muted small">Тестовая оплата — деньги не списываются.</p>
+                                    <HButton Disabled="busy"
+                                             Loading="@(busy && paymentId == order.Id)"
+                                             OnClick="() => Pay(order)">
+                                        Оплатить @CatalogService.Money(order.Total) (тест)
+                                    </HButton>
+                                </div>
+                            }
+                            @if (paymentId == order.Id && paymentError is not null)
+                            {
+                                <p class="order-payment-error" role="alert">@paymentError</p>
+                            }
+                        </article>
+                    }
+                }
             </section>
         </div>
     }
@@ -122,6 +170,9 @@
 
 @code
 {
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+    [SupplyParameterFromQuery(Name = "order")] public int? SelectedOrderId { get; set; }
+
     private AccountSession? session;
     private readonly LoginModel login = new();
     private readonly RegistrationModel registration = new();
@@ -130,6 +181,10 @@
     private bool registering;
     private bool busy;
     private string? error;
+    private StoreOrder[]? orders;
+    private bool ordersLoading;
+    private int? paymentId;
+    private string? paymentError;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -149,6 +204,7 @@
             if (session.Customer is { } customer)
             {
                 profile = new ProfileModel { Name = customer.Name, Phone = customer.Phone };
+                await LoadOrders();
             }
         }
         catch (JSException)
@@ -185,16 +241,71 @@
     private Task Logout() => SendRequest("/logout", "POST");
     private Task SaveProfile() => SendRequest("/profile", "PUT", profile);
 
+    private async Task LoadOrders()
+    {
+        ordersLoading = true;
+        try
+        {
+            var result = await JS.InvokeAsync<AccountResult<StoreOrder[]>>(
+                "tempUi.accountRequest", "/orders", "GET");
+            orders = result.Success ? result.Data : null;
+        }
+        catch (JSException)
+        {
+            orders = null;
+        }
+        finally
+        {
+            ordersLoading = false;
+        }
+    }
+
+    private async Task Pay(StoreOrder order)
+    {
+        if (busy) return;
+        busy = true;
+        paymentId = order.Id;
+        paymentError = null;
+        try
+        {
+            var result = await JS.InvokeAsync<AccountResult<StoreOrder>>(
+                "tempUi.accountRequest", $"/orders/{order.Id}/pay", "POST");
+            if (result.Success && result.Data is { } paidOrder)
+            {
+                orders = orders!.Select(item => item.Id == paidOrder.Id ? paidOrder : item).ToArray();
+                paymentId = null;
+            }
+            else
+            {
+                paymentError = result.Message ?? "Не удалось выполнить тестовую оплату. Попробуйте ещё раз.";
+            }
+        }
+        catch (JSException)
+        {
+            paymentError = "Нет связи с сервером. Повторите оплату позже.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string OrderDate(string value) => DateTimeOffset.Parse(value).ToString("dd.MM.yyyy");
+
     private async Task SendRequest(string path, string method, object? body = null)
     {
+        if (busy) return;
         busy = true;
         error = null;
         try
         {
-            var result = await JS.InvokeAsync<AccountResult>("tempUi.accountRequest", path, method, body);
+            var result = await JS.InvokeAsync<AccountResult<object>>("tempUi.accountRequest", path, method, body);
             if (result.Success)
             {
-                Navigation.NavigateTo("/account", forceLoad: true);
+                var destination = ReturnTo == "checkout" && (path is "/login" or "/register")
+                    ? "/checkout"
+                    : "/account";
+                Navigation.NavigateTo(destination, forceLoad: true);
             }
             else
             {
@@ -212,5 +323,5 @@
     }
 
     private record AccountSession(bool Authenticated, Customer? Customer, string Token);
-    private record AccountResult(bool Success, string? Message);
+    private record AccountResult<T>(bool Success, string? Message, T? Data);
 }

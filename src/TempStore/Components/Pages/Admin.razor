@@ -3,10 +3,10 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<PageTitle>Управление товарами — ТЕМП</PageTitle>
+<PageTitle>Управление магазином — ТЕМП</PageTitle>
 
 <div class="container admin-page">
-    <PageHeading Title="Управление товарами">
+    <PageHeading Title="Управление магазином">
         @if (session?.Authenticated == true)
         {
             <HButton Variant="secondary" Disabled="busy" OnClick="Logout">Выйти</HButton>
@@ -44,126 +44,141 @@
     }
     else
     {
-        <div class="admin-layout">
-            <section class="admin-products" aria-labelledby="admin-products-title">
-                <div class="admin-section-heading">
-                    <h2 id="admin-products-title">Товары (@Catalog.Products.Count)</h2>
-                    <HButton Variant="secondary" Disabled="busy" OnClick="StartNew">Добавить товар</HButton>
-                </div>
+        <nav class="admin-sections" aria-label="Разделы администрирования">
+            <HButton Variant="@(showOrders ? "ghost" : "secondary")"
+                     aria-pressed="@(!showOrders)"
+                     OnClick="() => showOrders = false">Товары</HButton>
+            <HButton Variant="@(showOrders ? "secondary" : "ghost")"
+                     aria-pressed="@showOrders"
+                     OnClick="() => showOrders = true">Заказы</HButton>
+        </nav>
+        @if (showOrders)
+        {
+            <AdminOrders />
+        }
+        else
+        {
+            <div class="admin-layout">
+                <section class="admin-products" aria-labelledby="admin-products-title">
+                    <div class="admin-section-heading">
+                        <h2 id="admin-products-title">Товары (@Catalog.Products.Count)</h2>
+                        <HButton Variant="secondary" Disabled="busy" OnClick="StartNew">Добавить товар</HButton>
+                    </div>
 
-                @if (Catalog.Products.Count == 0)
-                {
-                    <p class="muted">Товаров пока нет. Добавьте первый товар через форму.</p>
-                }
+                    @if (Catalog.Products.Count == 0)
+                    {
+                        <p class="muted">Товаров пока нет. Добавьте первый товар через форму.</p>
+                    }
 
-                @foreach (var product in Catalog.Products)
-                {
-                    <article class="admin-product" @key="product.Id">
-                        <img src="@product.Image" alt="" width="72" height="90" loading="lazy" />
-                        <div class="admin-product-copy">
-                            <p class="muted small">@product.Brand · @product.Category</p>
-                            <h3>@product.Name</h3>
-                            <p>@CatalogService.Money(product.Price)</p>
-                        </div>
-                        <div class="admin-product-actions">
-                            @if (deleteId == product.Id)
-                            {
-                                <div class="admin-delete-confirm" role="group" aria-label="Подтверждение удаления">
-                                    <span>Удалить товар?</span>
-                                    <HButton Variant="danger"
-                                             Size="sm"
-                                             Loading="busy"
-                                             OnClick="() => Delete(product.Id)">
-                                        Да, удалить
-                                    </HButton>
-                                    <HButton Variant="ghost"
-                                             Size="sm"
-                                             Disabled="busy"
-                                             OnClick="() => deleteId = null">
-                                        Отмена
-                                    </HButton>
-                                </div>
-                            }
-                            else
-                            {
-                                <HButton Variant="secondary" Size="sm" Disabled="busy" OnClick="() => Edit(product)">
-                                    Изменить
-                                </HButton>
-                                <HButton Variant="ghost" Size="sm" Disabled="busy" OnClick="() => deleteId = product.Id">
-                                    Удалить
-                                </HButton>
-                            }
-                        </div>
-                    </article>
-                }
-            </section>
-
-            <section class="admin-editor" aria-labelledby="admin-editor-title">
-                <h2 id="admin-editor-title" tabindex="-1" @ref="editorElement">
-                    @(editingId.HasValue ? "Изменить товар" : "Добавить товар")
-                </h2>
-                <EditForm Model="editor" OnValidSubmit="Save" FormName="admin-product" @key="editor">
-                    <DataAnnotationsValidator />
-                    <fieldset disabled="@busy">
-                        <HInput Label="Название" @bind-Value="editor.Name" Required />
-                        <div class="admin-fields-row">
-                            <HSelect Label="Бренд" @bind-Value="editor.Brand">
-                                <option value="">Выберите бренд</option>
-                                @foreach (var brand in Catalog.Brands)
+                    @foreach (var product in Catalog.Products)
+                    {
+                        <article class="admin-product" @key="product.Id">
+                            <img src="@product.Image" alt="" width="72" height="90" loading="lazy" />
+                            <div class="admin-product-copy">
+                                <p class="muted small">@product.Brand · @product.Category</p>
+                                <h3>@product.Name</h3>
+                                <p>@CatalogService.Money(product.Price)</p>
+                            </div>
+                            <div class="admin-product-actions">
+                                @if (deleteId == product.Id)
                                 {
-                                    <option value="@brand.Name">@brand.Name</option>
+                                    <div class="admin-delete-confirm" role="group" aria-label="Подтверждение удаления">
+                                        <span>Удалить товар?</span>
+                                        <HButton Variant="danger"
+                                                 Size="sm"
+                                                 Loading="busy"
+                                                 OnClick="() => Delete(product.Id)">
+                                            Да, удалить
+                                        </HButton>
+                                        <HButton Variant="ghost"
+                                                 Size="sm"
+                                                 Disabled="busy"
+                                                 OnClick="() => deleteId = null">
+                                            Отмена
+                                        </HButton>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <HButton Variant="secondary" Size="sm" Disabled="busy" OnClick="() => Edit(product)">
+                                        Изменить
+                                    </HButton>
+                                    <HButton Variant="ghost" Size="sm" Disabled="busy" OnClick="() => deleteId = product.Id">
+                                        Удалить
+                                    </HButton>
+                                }
+                            </div>
+                        </article>
+                    }
+                </section>
+
+                <section class="admin-editor" aria-labelledby="admin-editor-title">
+                    <h2 id="admin-editor-title" tabindex="-1" @ref="editorElement">
+                        @(editingId.HasValue ? "Изменить товар" : "Добавить товар")
+                    </h2>
+                    <EditForm Model="editor" OnValidSubmit="Save" FormName="admin-product" @key="editor">
+                        <DataAnnotationsValidator />
+                        <fieldset disabled="@busy">
+                            <HInput Label="Название" @bind-Value="editor.Name" Required />
+                            <div class="admin-fields-row">
+                                <HSelect Label="Бренд" @bind-Value="editor.Brand">
+                                    <option value="">Выберите бренд</option>
+                                    @foreach (var brand in Catalog.Brands)
+                                    {
+                                        <option value="@brand.Name">@brand.Name</option>
+                                    }
+                                </HSelect>
+                                <HInput Label="Категория" @bind-Value="editor.Category" Required />
+                            </div>
+                            <div class="admin-fields-row">
+                                <div class="field">
+                                    <label class="label" for="admin-price">Цена, ₽</label>
+                                    <InputNumber id="admin-price" class="input" @bind-Value="editor.Price" step="0.01" />
+                                    <ValidationMessage For="() => editor.Price" />
+                                </div>
+                                <div class="field">
+                                    <label class="label" for="admin-old-price">Старая цена, ₽</label>
+                                    <InputNumber id="admin-old-price"
+                                                 class="input"
+                                                 @bind-Value="editor.OldPrice"
+                                                 step="0.01" />
+                                    <ValidationMessage For="() => editor.OldPrice" />
+                                </div>
+                            </div>
+                            <HInput Label="Цвет" @bind-Value="editor.Color" Required />
+                            <HInput Label="Размеры"
+                                    @bind-Value="editor.Sizes"
+                                    Description="Через запятую: S, M, L"
+                                    Required />
+                            <HSelect Label="Изображение" @bind-Value="editor.Image">
+                                <option value="">Выберите изображение</option>
+                                @foreach (var image in session.Images)
+                                {
+                                    <option value="@image">@Path.GetFileNameWithoutExtension(image).Replace('-', ' ')</option>
                                 }
                             </HSelect>
-                            <HInput Label="Категория" @bind-Value="editor.Category" Required />
-                        </div>
-                        <div class="admin-fields-row">
-                            <div class="field">
-                                <label class="label" for="admin-price">Цена, ₽</label>
-                                <InputNumber id="admin-price" class="input" @bind-Value="editor.Price" step="0.01" />
-                                <ValidationMessage For="() => editor.Price" />
-                            </div>
-                            <div class="field">
-                                <label class="label" for="admin-old-price">Старая цена, ₽</label>
-                                <InputNumber id="admin-old-price"
-                                             class="input"
-                                             @bind-Value="editor.OldPrice"
-                                             step="0.01" />
-                                <ValidationMessage For="() => editor.OldPrice" />
-                            </div>
-                        </div>
-                        <HInput Label="Цвет" @bind-Value="editor.Color" Required />
-                        <HInput Label="Размеры"
-                                @bind-Value="editor.Sizes"
-                                Description="Через запятую: S, M, L"
-                                Required />
-                        <HSelect Label="Изображение" @bind-Value="editor.Image">
-                            <option value="">Выберите изображение</option>
-                            @foreach (var image in session.Images)
+                            @if (!string.IsNullOrEmpty(editor.Image))
                             {
-                                <option value="@image">@Path.GetFileNameWithoutExtension(image).Replace('-', ' ')</option>
+                                <img class="admin-image-preview" src="@editor.Image" alt="Изображение товара" width="120" height="150" />
                             }
-                        </HSelect>
-                        @if (!string.IsNullOrEmpty(editor.Image))
-                        {
-                            <img class="admin-image-preview" src="@editor.Image" alt="Изображение товара" width="120" height="150" />
-                        }
-                        <div class="admin-flags">
-                            <HCheckbox @bind-Value="editor.IsNew">Новинка</HCheckbox>
-                            <HCheckbox @bind-Value="editor.Popular">Популярный товар</HCheckbox>
+                            <div class="admin-flags">
+                                <HCheckbox @bind-Value="editor.IsNew">Новинка</HCheckbox>
+                                <HCheckbox @bind-Value="editor.Popular">Популярный товар</HCheckbox>
+                            </div>
+                        </fieldset>
+                        <div class="admin-form-actions">
+                            <HButton Type="submit" Loading="busy">
+                                @(editingId.HasValue ? "Сохранить изменения" : "Добавить товар")
+                            </HButton>
+                            @if (editingId.HasValue)
+                            {
+                                <HButton Variant="ghost" Disabled="busy" OnClick="StartNew">Отмена</HButton>
+                            }
                         </div>
-                    </fieldset>
-                    <div class="admin-form-actions">
-                        <HButton Type="submit" Loading="busy">
-                            @(editingId.HasValue ? "Сохранить изменения" : "Добавить товар")
-                        </HButton>
-                        @if (editingId.HasValue)
-                        {
-                            <HButton Variant="ghost" Disabled="busy" OnClick="StartNew">Отмена</HButton>
-                        }
-                    </div>
-                </EditForm>
-            </section>
-        </div>
+                    </EditForm>
+                </section>
+            </div>
+        }
     }
 </div>
 
@@ -178,6 +193,7 @@
     private int? deleteId;
     private bool loading = true;
     private bool busy;
+    private bool showOrders;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

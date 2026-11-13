@@ -106,6 +106,8 @@ public static class AdminEndpoints
         admin.MapDelete("/products/{id:int}", (int id, CatalogDatabase database) =>
             database.DeleteProduct(id) ? Results.NoContent() : Error(404, "Товар не найден"))
             .RequireAuthorization();
+
+        admin.MapAdminOrders();
     }
 
     private static async Task<IResult> SaveProduct(HttpContext context, CatalogDatabase database,

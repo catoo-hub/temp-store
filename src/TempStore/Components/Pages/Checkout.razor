@@ -1,11 +1,154 @@
 @page "/checkout"
+@inject CartService Cart
+@inject CatalogService Catalog
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Оформление заказа — ТЕМП</PageTitle>
 
-<div class="container">
+<div class="container checkout-page">
     <PageHeading Title="Оформление заказа" />
-    <EmptyState Title="Оформление заказов временно недоступно"
-                Description="Вернитесь к корзине, чтобы посмотреть или изменить выбранные товары.">
-        <a href="/cart" class="button button--primary">Вернуться в корзину <Icon Name="bag" /></a>
-    </EmptyState>
+    @if (error is not null)
+    {
+        <div class="account-error" role="alert">@error</div>
+    }
+
+    @if (loading)
+    {
+        <HSpinner Label="Загружаем оформление заказа" />
+    }
+    else if (Cart.Count == 0)
+    {
+        <EmptyState Title="Корзина пуста" Description="Выберите товары, чтобы оформить заказ.">
+            <a href="/catalog" class="button button--primary">Перейти в каталог <Icon Name="right" /></a>
+        </EmptyState>
+    }
+    else if (session is null)
+    {
+        <HButton OnClick="LoadSession">Попробовать снова</HButton>
+    }
+    else if (!session.Authenticated)
+    {
+        <EmptyState Title="Войдите, чтобы оформить заказ"
+                    Description="Заказ появится в вашем личном кабинете."
+                    IconName="user">
+            <a href="/account?returnTo=checkout" class="button button--primary">Войти или зарегистрироваться</a>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="cart-layout">
+            <EditForm Model="order" OnValidSubmit="PlaceOrder" FormName="checkout" class="checkout-form">
+                <DataAnnotationsValidator />
+                <h2>Получатель и доставка</h2>
+                <fieldset disabled="@busy">
+                    <HInput Label="Имя" @bind-Value="order.Name" autocomplete="name" maxlength="80" Required />
+                    <HInput Label="Телефон"
+                            Type="tel"
+                            @bind-Value="order.Phone"
+                            autocomplete="tel"
+                            maxlength="40"
+                            Required />
+                    <HTextArea Label="Адрес доставки"
+                               @bind-Value="order.Address"
+                               autocomplete="street-address"
+                               maxlength="300"
+                               required />
+                </fieldset>
+                <HButton Type="submit" Loading="busy">Оформить заказ</HButton>
+                <a href="/cart" class="text-link"><Icon Name="left" /> Вернуться в корзину</a>
+            </EditForm>
+
+            <HCard Class="order-summary">
+                <h2>Ваш заказ</h2>
+                @foreach (var line in Cart.Lines)
+                {
+                    var product = Catalog.Find(line.ProductId)!;
+                    <div class="checkout-summary-item">
+                        <span>@product.Name</span>
+                        <span class="muted small">@line.Size · @line.Quantity шт.</span>
+                        <strong>@CatalogService.Money(product.Price * line.Quantity)</strong>
+                    </div>
+                }
+                <hr />
+                <div class="summary-line"><span>Доставка</span><span>Бесплатно</span></div>
+                <div class="summary-line summary-total">
+                    <span>Итого</span><span>@CatalogService.Money(Cart.Total)</span>
+                </div>
+                <p class="muted small">После оформления доступна тестовая оплата. Деньги не списываются.</p>
+            </HCard>
+        </div>
+    }
 </div>
+
+@code
+{
+    private readonly CreateOrderModel order = new() { RequestId = Guid.NewGuid().ToString() };
+    private CheckoutSession? session;
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadSession();
+        }
+    }
+
+    private async Task LoadSession()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            session = await JS.InvokeAsync<CheckoutSession>("tempUi.accountSession");
+            if (session.Customer is { } customer)
+            {
+                order.Name = customer.Name;
+                order.Phone = customer.Phone;
+            }
+            order.Items = Cart.Lines.ToArray();
+        }
+        catch (JSException)
+        {
+            error = "Не удалось загрузить оформление заказа. Попробуйте ещё раз.";
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PlaceOrder()
+    {
+        if (busy) return;
+        busy = true;
+        error = null;
+        try
+        {
+            var result = await JS.InvokeAsync<OrderResult>("tempUi.accountRequest", "/orders", "POST", order);
+            if (!result.Success || result.Data is null)
+            {
+                error = result.Message ?? "Не удалось оформить заказ. Попробуйте ещё раз.";
+                return;
+            }
+
+            await Cart.ClearAsync();
+            Navigation.NavigateTo($"/account?order={result.Data.Id}", forceLoad: true);
+        }
+        catch (JSException)
+        {
+            error = "Нет связи с сервером. Попробуйте оформить заказ ещё раз.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private record CheckoutSession(bool Authenticated, Customer? Customer, string Token);
+    private record OrderResult(bool Success, string? Message, StoreOrder? Data);
+}

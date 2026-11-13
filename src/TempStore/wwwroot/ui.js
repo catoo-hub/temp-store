@@ -5,6 +5,7 @@ async function sendRequest(url, method, body, token) {
   try {
     const response = await fetch(url, {
       method,
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         RequestVerificationToken: token,
@@ -12,7 +13,7 @@ async function sendRequest(url, method, body, token) {
       body: body == null ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
-    if (response.ok) return { success: true };
+    if (response.ok) return { success: true, data: await response.json().catch(() => null) };
     const error = await response.json().catch(() => ({}));
     const message =
       response.status === 429

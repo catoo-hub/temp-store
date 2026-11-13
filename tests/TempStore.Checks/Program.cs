@@ -59,9 +59,19 @@ RegistrationModel RegistrationDraft() => new()
     Confirmation = "test-customer-password"
 };
 
+CreateOrderModel OrderDraft() => new()
+{
+    RequestId = Guid.NewGuid().ToString("D"),
+    Name = "Анна",
+    Phone = "+7 900 000 00 00",
+    Address = "Тестовый адрес, дом 1",
+    Items = [new CartLine(1, "M", 2)]
+};
+
 var testDirectory = Path.Combine(Path.GetTempPath(), "temp-store-checks-" + Guid.NewGuid().ToString("N"));
 var databasePath = Path.Combine(testDirectory, "catalog.db");
 var accountDatabasePath = Path.Combine(testDirectory, "accounts.db");
+var orderDatabasePath = Path.Combine(testDirectory, "orders.db");
 CatalogData snapshot;
 try
 {
@@ -186,11 +196,146 @@ try
     Check(reopenedAccounts.Find(customer.Id) == savedProfile
         && reopenedAccounts.Login(customer.Email, registration.Password)?.Id == customer.Id,
         "Initialization preserves customer profiles and passwords");
+
+    var orderCatalog = new CatalogDatabase(orderDatabasePath);
+    orderCatalog.Initialize(seed);
+    var orderAccounts = new AccountDatabase(orderDatabasePath);
+    orderAccounts.Initialize();
+    var buyer = orderAccounts.Register(RegistrationDraft());
+    var otherRegistration = RegistrationDraft();
+    otherRegistration.Email = "other@example.test";
+    var otherBuyer = orderAccounts.Register(otherRegistration);
+    var orders = new OrderDatabase(orderDatabasePath);
+    orders.Initialize();
+
+    var orderRequest = OrderDraft();
+    var order = orders.Create(buyer.Id, orderRequest);
+    Check(order.Id > 0 && order.Status == "new" && !order.Paid && order.Total == 12980m,
+        "New order uses current server prices and starts unpaid");
+    Check(order.Items.Length == 1 && order.Items[0].ProductId == 1
+        && order.Items[0].Name == "Худи Club Fleece" && order.Items[0].Price == 6490m
+        && order.Items[0].Size == "M" && order.Items[0].Quantity == 2
+        && order.Items[0].Image == "/images/products/club-hoodie.webp",
+        "Order lines preserve product details, price, size and quantity");
+    Check(order.Name == orderRequest.Name && order.Phone == orderRequest.Phone
+        && order.Address == orderRequest.Address && DateTimeOffset.TryParse(order.CreatedAt, out _),
+        "Order stores delivery details and creation time");
+
+    orderRequest.RequestId = orderRequest.RequestId.ToUpperInvariant();
+    orderRequest.Name = "Повторный запрос";
+    var repeatedOrder = orders.Create(buyer.Id, orderRequest);
+    Check(repeatedOrder.Id == order.Id && repeatedOrder.Name == order.Name
+        && orders.GetForCustomer(buyer.Id).Length == 1,
+        "Repeated request ID returns the original order without overwriting it");
+
+    var otherOrder = orders.Create(otherBuyer.Id, orderRequest);
+    Check(otherOrder.Id != order.Id && orders.GetForCustomer(otherBuyer.Id).Single().Id == otherOrder.Id
+        && orders.GetForCustomer(buyer.Id).Single().Id == order.Id && orders.GetAll().Length == 2,
+        "Request IDs and order history are isolated by customer");
+    Check(orders.Pay(otherBuyer.Id, order.Id) is null
+        && !orders.GetForCustomer(buyer.Id).Single().Paid,
+        "Customer cannot pay another customer's order");
+    Check(orders.Pay(buyer.Id, 999999) is null && orders.ChangeStatus(999999, "processing") is null,
+        "Unknown orders are not payable or editable");
+
+    foreach (var (change, name) in new (Action<CreateOrderModel> Change, string Name)[]
+    {
+        (o => o.Items = [], "Empty order is rejected"),
+        (o => o.Items = null!, "Missing order items are rejected"),
+        (o => o.Items = [null!], "Null order line is rejected"),
+        (o => o.Items = [new CartLine(1, "M", 0)], "Zero order quantity is rejected"),
+        (o => o.Items = [new CartLine(1, "M", -1)], "Negative order quantity is rejected"),
+        (o => o.Items = [new CartLine(1, "M", 11)], "Excessive order quantity is rejected"),
+        (o => o.Items = [new CartLine(1, "unknown", 1)], "Unavailable order size is rejected"),
+        (o => o.Items = [new CartLine(999999, "M", 1)], "Missing product cannot be ordered"),
+        (o => o.Items = [new CartLine(1, "M", 1), new CartLine(1, "M", 2)],
+            "Duplicate product and size lines are rejected"),
+        (o => o.RequestId = "not-a-guid", "Invalid order request ID is rejected"),
+        (o => o.Name = " ", "Order requires a recipient name"),
+        (o => o.Phone = "not-a-phone", "Order requires a valid phone"),
+        (o => o.Address = " ", "Order requires a delivery address")
+    })
+    {
+        var invalidOrder = OrderDraft();
+        change(invalidOrder);
+        await Reject(() => Task.FromResult(orders.Create(buyer.Id, invalidOrder)), name);
+    }
+    Check(orders.GetAll().Length == 2, "Rejected requests do not create partial orders");
+
+    var correctedRequest = OrderDraft();
+    correctedRequest.Items = [new CartLine(1, "M", 0)];
+    await Reject(() => Task.FromResult(orders.Create(buyer.Id, correctedRequest)),
+        "Invalid order does not reserve its request ID");
+    correctedRequest.Items = [new CartLine(1, "M", 1), new CartLine(1, "L", 1)];
+    var correctedOrder = orders.Create(buyer.Id, correctedRequest);
+    Check(correctedOrder.Items.Length == 2 && correctedOrder.Total == 12980m,
+        "Corrected request can order different sizes of one product");
+
+    var concurrentRequest = OrderDraft();
+    var concurrentOrders = await Task.WhenAll(
+        Task.Run(() => orders.Create(buyer.Id, concurrentRequest)),
+        Task.Run(() => orders.Create(buyer.Id, concurrentRequest)));
+    Check(concurrentOrders[0].Id == concurrentOrders[1].Id
+        && orders.GetForCustomer(buyer.Id).Count(item => item.Id == concurrentOrders[0].Id) == 1,
+        "Concurrent duplicate requests create one order");
+
+    await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "processing")),
+        "Unpaid order cannot enter processing");
+    await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "shipped")),
+        "Order status cannot skip processing");
+    await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "unknown")),
+        "Unknown order status is rejected");
+    var paid = orders.Pay(buyer.Id, order.Id);
+    Check(paid is not null && paid.Paid && paid.Status == "new" && paid.Total == order.Total,
+        "Test payment marks the existing order paid without changing its total");
+    var paidAgain = orders.Pay(buyer.Id, order.Id);
+    Check(paidAgain is not null && paidAgain.Id == order.Id && paidAgain.Paid
+        && paidAgain.Items.SequenceEqual(order.Items),
+        "Repeated payment keeps the same order and item snapshot");
+    Check(orders.ChangeStatus(order.Id, "processing")?.Status == "processing"
+        && orders.ChangeStatus(order.Id, "processing")?.Status == "processing",
+        "Paid order enters processing and repeated status updates are idempotent");
+    Check(orders.ChangeStatus(order.Id, "shipped")?.Status == "shipped", "Processed order can be shipped");
+    await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "cancelled")),
+        "Shipped order cannot be cancelled");
+    Check(orders.ChangeStatus(order.Id, "completed")?.Status == "completed", "Shipped order can be completed");
+    await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "processing")),
+        "Completed order cannot move backwards");
+
+    Check(orders.ChangeStatus(correctedOrder.Id, "cancelled")?.Status == "cancelled",
+        "New unpaid order can be cancelled");
+    await Reject(() => Task.FromResult(orders.Pay(buyer.Id, correctedOrder.Id)),
+        "Cancelled order cannot be paid");
+    await Reject(() => Task.FromResult(orders.ChangeStatus(correctedOrder.Id, "processing")),
+        "Cancelled order cannot be reopened");
+
+    var changedProduct = ProductDraft();
+    changedProduct.Name = "Другая модель";
+    changedProduct.Price = 1000.01m;
+    changedProduct.OldPrice = null;
+    orderCatalog.SaveProduct(changedProduct, 1);
+    var freshPriceOrder = orders.Create(buyer.Id, OrderDraft());
+    Check(freshPriceOrder.Total == 2000.02m && freshPriceOrder.Items[0].Price == 1000.01m,
+        "New order reads changed catalog prices with exact kopecks");
+    Check(orders.GetForCustomer(buyer.Id).Single(item => item.Id == order.Id).Items.SequenceEqual(order.Items),
+        "Catalog edits do not rewrite historical order lines");
+    orderCatalog.DeleteProduct(1);
+    var historicalOrder = orders.GetForCustomer(buyer.Id).Single(item => item.Id == order.Id);
+    Check(historicalOrder.Total == 12980m && historicalOrder.Items.SequenceEqual(order.Items),
+        "Deleting a product preserves historical order totals and details");
+    Check(orders.Create(buyer.Id, orderRequest).Id == order.Id,
+        "Retry after product deletion still returns the original order");
+    var reopenedOrders = new OrderDatabase(orderDatabasePath);
+    reopenedOrders.Initialize();
+    var reopenedOrder = reopenedOrders.GetForCustomer(buyer.Id).Single(item => item.Id == order.Id);
+    Check(reopenedOrder.Paid && reopenedOrder.Status == "completed"
+        && reopenedOrder.Total == order.Total && reopenedOrder.Items.SequenceEqual(order.Items),
+        "Order payment, status and snapshot survive initialization");
 }
 finally
 {
     SqliteConnection.ClearAllPools();
-    foreach (var file in new[] { databasePath, accountDatabasePath })
+    foreach (var file in new[] { databasePath, accountDatabasePath, orderDatabasePath })
     {
         if (File.Exists(file))
         {
@@ -329,6 +474,15 @@ var slowStorage = new FakeJs
 var concurrent = new CartService(catalog, slowStorage);
 await Task.WhenAll(concurrent.LoadAsync(), concurrent.LoadAsync());
 Check(concurrent.Count == 2 && slowStorage.Reads == 1, "Concurrent loads read and merge saved cart once");
+
+var checkoutStorage = new FakeJs { Value = savedCart };
+var checkoutCart = new CartService(catalog, checkoutStorage);
+await checkoutCart.LoadAsync();
+await checkoutCart.ClearAsync();
+var cartAfterCheckout = new CartService(catalog, checkoutStorage);
+await cartAfterCheckout.LoadAsync();
+Check(checkoutCart.Count == 0 && checkoutCart.Total == 0 && cartAfterCheckout.Count == 0,
+    "Clearing the cart after checkout persists across service instances");
 
 var validation = new List<ValidationResult>();
 var feedback = new FeedbackModel { Email = "bad-email" };

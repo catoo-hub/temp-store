@@ -27,7 +27,8 @@ public static class AccountEndpoints
                 {
                     var antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
                     await antiforgery.ValidateRequestAsync(http);
-                    if (!http.Request.Path.Value!.EndsWith("/logout") && !http.Request.HasJsonContentType())
+                    var path = http.Request.Path.Value!.TrimEnd('/');
+                    if (!path.EndsWith("/logout") && !path.EndsWith("/pay") && !http.Request.HasJsonContentType())
                     {
                         return Error(400, "Проверьте данные запроса");
                     }
@@ -128,6 +129,8 @@ public static class AccountEndpoints
             var customer = database.UpdateProfile(CustomerId(context), profile!);
             return customer is null ? Error(401, "Войдите в личный кабинет") : Results.Ok(customer);
         }).RequireAuthorization("customer");
+
+        account.MapAccountOrders();
     }
 
     private static Task SignIn(HttpContext context, Customer customer)

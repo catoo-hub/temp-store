@@ -123,6 +123,13 @@ public sealed class CartService(CatalogService catalog, IJSRuntime js)
         await PersistAsync();
     }
 
+    public async Task ClearAsync()
+    {
+        await LoadAsync();
+        lines.Clear();
+        await PersistAsync();
+    }
+
     private async Task PersistAsync()
     {
         Changed?.Invoke();

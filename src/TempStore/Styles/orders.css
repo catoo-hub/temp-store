@@ -1,0 +1,150 @@
+.checkout-form,
+.checkout-form fieldset {
+  display: grid;
+  gap: 24px;
+}
+
+.checkout-form {
+  align-content: start;
+}
+
+.checkout-form h2 {
+  font-size: 20px;
+}
+
+.checkout-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.checkout-form > .button,
+.checkout-form > .text-link {
+  justify-self: start;
+}
+
+.checkout-summary-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  margin: 16px 0;
+}
+
+.checkout-summary-item .muted {
+  grid-column: 1;
+}
+
+.checkout-summary-item strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.order-card + .order-card {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.order-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.order-heading h3 {
+  font-size: 15px;
+}
+
+.order-heading time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.order-details {
+  margin-top: 16px;
+}
+
+.order-details > summary {
+  cursor: pointer;
+  padding-block: 8px;
+}
+
+.order-lines {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.order-line {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-line img {
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--default);
+}
+
+.order-line > span {
+  white-space: nowrap;
+}
+
+.order-delivery {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 0;
+}
+
+.order-delivery > div {
+  display: grid;
+  grid-template-columns: 95px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.order-delivery dt {
+  color: var(--muted);
+}
+
+.order-delivery dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.order-payment {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.order-payment-error {
+  margin-top: 12px;
+  color: var(--danger);
+}
+
+.order-payment .button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 480px) {
+  .order-line {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .order-line > span {
+    grid-column: 2;
+  }
+
+  .order-delivery > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

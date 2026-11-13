@@ -1,0 +1,23 @@
+<div class="order-lines">
+    @foreach (var item in Order.Items)
+    {
+        <div class="order-line">
+            <img src="@item.Image" alt="" width="56" height="70" loading="lazy" />
+            <div>
+                <p>@item.Name</p>
+                <p class="muted small">Размер @item.Size · @item.Quantity шт.</p>
+            </div>
+            <span>@CatalogService.Money(item.Price * item.Quantity)</span>
+        </div>
+    }
+</div>
+<dl class="order-delivery">
+    <div><dt>Получатель</dt><dd>@Order.Name</dd></div>
+    <div><dt>Телефон</dt><dd>@Order.Phone</dd></div>
+    <div><dt>Адрес</dt><dd>@Order.Address</dd></div>
+</dl>
+
+@code
+{
+    [Parameter, EditorRequired] public StoreOrder Order { get; set; } = default!;
+}

@@ -1,0 +1,161 @@
+@inject IJSRuntime JS
+
+<section aria-labelledby="admin-orders-title">
+    <div class="admin-section-heading">
+        <h2 id="admin-orders-title">Заказы</h2>
+        <HButton Variant="secondary" Disabled="busy || loading" OnClick="LoadOrders">Обновить</HButton>
+    </div>
+
+    @if (error is not null)
+    {
+        <HAlert Tone="danger">@error</HAlert>
+    }
+
+    @if (loading)
+    {
+        <HSpinner Label="Загружаем заказы" />
+    }
+    else if (orders.Length == 0 && error is null)
+    {
+        <p class="muted">Заказов пока нет.</p>
+    }
+    else
+    {
+        <div class="admin-orders">
+            @foreach (var order in orders)
+            {
+                <article class="admin-order" @key="order.Id">
+                    <div class="admin-section-heading">
+                        <div>
+                            <h3>Заказ №@order.Id</h3>
+                            <p class="muted small">@DateTimeOffset.Parse(order.CreatedAt).ToString("dd.MM.yyyy")</p>
+                        </div>
+                        <strong>@CatalogService.Money(order.Total)</strong>
+                    </div>
+                    <p class="admin-order-status">
+                        @OrderStatus.Label(order.Status) · @(order.Paid ? "Оплачен (тест)" : "Ожидает оплаты")
+                    </p>
+                    <details>
+                        <summary>Состав и доставка</summary>
+                        <OrderDetails Order="order" />
+                    </details>
+                    <div class="admin-order-actions">
+                        @foreach (var status in OrderStatus.Next(order.Status))
+                        {
+                            if (!order.Paid && status == "processing")
+                            {
+                                continue;
+                            }
+
+                            if (status == "cancelled")
+                            {
+                                if (cancelId == order.Id)
+                                {
+                                    <span>Отменить заказ?</span>
+                                    <HButton Variant="danger" Size="sm" Disabled="busy"
+                                             OnClick="() => ChangeStatus(order.Id, status)">Да, отменить</HButton>
+                                    <HButton Variant="ghost" Size="sm" Disabled="busy"
+                                             OnClick="() => cancelId = null">Оставить</HButton>
+                                }
+                                else
+                                {
+                                    <HButton Variant="ghost" Size="sm" Disabled="busy"
+                                             OnClick="() => cancelId = order.Id">Отменить заказ</HButton>
+                                }
+                            }
+                            else
+                            {
+                                <HButton Variant="secondary" Size="sm" Disabled="busy"
+                                         OnClick="() => ChangeStatus(order.Id, status)">
+                                    @ActionLabel(status)
+                                </HButton>
+                            }
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code
+{
+    private StoreOrder[] orders = [];
+    private string? error;
+    private int? cancelId;
+    private bool loading = true;
+    private bool busy;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadOrders();
+        }
+    }
+
+    private async Task LoadOrders()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            var result = await JS.InvokeAsync<OrderResult<StoreOrder[]>>("tempUi.adminRequest", "/orders", "GET");
+            if (result.Success && result.Data is not null)
+            {
+                orders = result.Data;
+            }
+            else
+            {
+                error = result.Message ?? "Не удалось загрузить заказы.";
+            }
+        }
+        catch (JSException)
+        {
+            error = "Нет связи с сервером. Попробуйте ещё раз.";
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ChangeStatus(int id, string status)
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var result = await JS.InvokeAsync<OrderResult<StoreOrder>>("tempUi.adminRequest",
+                $"/orders/{id}/status", "PUT", new { status });
+            if (result.Success && result.Data is not null)
+            {
+                orders = orders.Select(order => order.Id == id ? result.Data : order).ToArray();
+                cancelId = null;
+            }
+            else
+            {
+                error = result.Message ?? "Не удалось изменить статус.";
+            }
+        }
+        catch (JSException)
+        {
+            error = "Нет связи с сервером. Попробуйте ещё раз.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string ActionLabel(string status) => status switch
+    {
+        "processing" => "В обработку",
+        "shipped" => "Отправить",
+        "completed" => "Завершить",
+        _ => OrderStatus.Label(status)
+    };
+
+    private record OrderResult<T>(bool Success, string? Message, T? Data);
+}

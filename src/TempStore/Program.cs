@@ -15,6 +15,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddSingleton(new CatalogDatabase(databasePath));
 builder.Services.AddSingleton(new AccountDatabase(databasePath));
+builder.Services.AddSingleton(new OrderDatabase(databasePath));
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<AdminAccess>();
@@ -126,6 +127,7 @@ var app = builder.Build();
 app.Services.GetRequiredService<CatalogDatabase>().Initialize(
     File.ReadAllText(Path.Combine(app.Environment.ContentRootPath, "Data", "catalog.sql")));
 app.Services.GetRequiredService<AccountDatabase>().Initialize();
+app.Services.GetRequiredService<OrderDatabase>().Initialize();
 
 if (!app.Environment.IsDevelopment())
 {
