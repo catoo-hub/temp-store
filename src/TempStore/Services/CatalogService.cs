@@ -14,20 +14,29 @@ public sealed class CatalogService(IJSRuntime js)
     public IReadOnlyList<Review> Reviews => data.Reviews;
     public IReadOnlyList<string> Categories { get; private set; } = [];
     public IReadOnlyList<string> Sizes { get; private set; } = [];
-    public IReadOnlyList<OrderRow> Orders => [];
 
     public async Task LoadAsync()
     {
-        try { await (loadTask ??= LoadCoreAsync()); }
-        catch { loadTask = null; throw; }
+        try
+        {
+            await (loadTask ??= LoadCoreAsync());
+        }
+        catch
+        {
+            loadTask = null;
+            throw;
+        }
     }
+
     private async Task LoadCoreAsync()
     {
         var result = await js.InvokeAsync<CatalogData?>("tempUi.getCatalog");
         if (result?.Products is null || result.Brands is null || result.Reviews is null ||
             result.Products.Any(p => p is null || p.Sizes is null) ||
             result.Brands.Any(b => b is null) || result.Reviews.Any(r => r is null))
+        {
             throw new InvalidOperationException("Не удалось загрузить товары.");
+        }
         data = result;
         Categories = Products.Select(p => p.Category).Distinct().ToArray();
         string[] sizeOrder = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -36,5 +45,7 @@ public sealed class CatalogService(IJSRuntime js)
     }
 
     public Product? Find(int id) => Products.FirstOrDefault(x => x.Id == id);
-    public static string Money(decimal value) => value.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+    public static string Money(decimal value) =>
+        value.ToString(value == decimal.Truncate(value) ? "N0" : "N2",
+            System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
 }

@@ -1,4 +1,5 @@
 namespace TempStore.Services;
+
 public record ToastMessage(Guid Id, string Text, bool IsError);
 public sealed class ToastService
 {

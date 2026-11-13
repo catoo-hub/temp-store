@@ -1,8 +1,17 @@
 @page "/contacts"
 @inject ToastService Toasts
+
 <PageTitle>Контакты — ТЕМП</PageTitle>
+
 <div class="container">
     <PageHeading Title="Написать нам" Description="Задайте вопрос о товаре, размере или заказе." />
-    <div class="prose"><FeedbackForm OnValidated="Validated" /></div>
+    <div class="prose">
+        <FeedbackForm OnValidated="Validated" />
+    </div>
 </div>
-@code { private void Validated(FeedbackModel model) => Toasts.Show("Не удалось отправить сообщение. Попробуйте позже.", true); }
+
+@code
+{
+    private void Validated(FeedbackModel model) =>
+        Toasts.Show("Не удалось отправить сообщение. Попробуйте позже.", true);
+}

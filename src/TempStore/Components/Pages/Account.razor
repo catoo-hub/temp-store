@@ -1,8 +1,216 @@
 @page "/account"
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
 <PageTitle>Личный кабинет — ТЕМП</PageTitle>
-<div class="container">
-    <PageHeading Title="Личный кабинет" />
-    <EmptyState Title="Личный кабинет временно недоступен" Description="Вы можете продолжить выбирать товары в каталоге." IconName="user">
-        <a href="/catalog" class="button button--primary">Перейти в каталог <Icon Name="right" /></a>
-    </EmptyState>
+
+<div class="container account-page">
+    <PageHeading Title="Личный кабинет">
+        @if (session?.Authenticated == true)
+        {
+            <HButton Variant="secondary" Disabled="busy" OnClick="Logout">Выйти</HButton>
+        }
+    </PageHeading>
+
+    @if (error is not null)
+    {
+        <div class="account-error" role="alert">@error</div>
+    }
+
+    @if (loading)
+    {
+        <HSpinner Label="Загружаем личный кабинет" />
+    }
+    else if (session is null)
+    {
+        <HButton Variant="secondary" OnClick="LoadSession">Попробовать снова</HButton>
+    }
+    else if (session.Authenticated && session.Customer is { } customer)
+    {
+        <div class="account-layout">
+            <section class="account-panel" aria-labelledby="profile-title">
+                <h2 id="profile-title">Мои данные</h2>
+                <p class="account-email">@customer.Email</p>
+                <EditForm Model="profile" OnValidSubmit="SaveProfile" FormName="account-profile">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@busy">
+                        <HInput Label="Имя" @bind-Value="profile.Name" autocomplete="name" maxlength="80" Required />
+                        <HInput Label="Телефон" Type="tel" @bind-Value="profile.Phone" autocomplete="tel" maxlength="40" />
+                    </fieldset>
+                    <HButton Type="submit" Loading="busy">Сохранить изменения</HButton>
+                </EditForm>
+            </section>
+
+            <section class="account-panel account-orders" aria-labelledby="orders-title">
+                <h2 id="orders-title">Мои заказы</h2>
+                <p class="muted">У вас пока нет заказов.</p>
+                <a href="/catalog" class="text-link">Перейти в каталог <Icon Name="right" /></a>
+            </section>
+        </div>
+    }
+    else
+    {
+        <section class="account-panel account-entry" aria-labelledby="account-entry-title">
+            <h2 id="account-entry-title">@(registering ? "Создать аккаунт" : "Войти")</h2>
+
+            @if (registering)
+            {
+                <EditForm Model="registration" OnValidSubmit="Register" FormName="account-register">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@busy">
+                        <HInput Label="Имя"
+                                @bind-Value="registration.Name"
+                                autocomplete="name"
+                                maxlength="80"
+                                Required />
+                        <HInput Label="Email"
+                                Type="email"
+                                @bind-Value="registration.Email"
+                                autocomplete="email"
+                                maxlength="254"
+                                Required />
+                        <HInput Label="Пароль"
+                                Type="password"
+                                @bind-Value="registration.Password"
+                                autocomplete="new-password"
+                                Description="Не менее 8 символов"
+                                minlength="8"
+                                maxlength="128"
+                                Required />
+                        <HInput Label="Повторите пароль"
+                                Type="password"
+                                @bind-Value="registration.Confirmation"
+                                autocomplete="new-password"
+                                maxlength="128"
+                                Required />
+                    </fieldset>
+                    <HButton Type="submit" Loading="busy" FullWidth>Создать аккаунт</HButton>
+                </EditForm>
+                <div class="account-switch">
+                    <span class="muted">Уже есть аккаунт?</span>
+                    <HButton Variant="ghost" Size="sm" Disabled="busy" OnClick="() => SwitchForm(false)">Войти</HButton>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="login" OnValidSubmit="Login" FormName="account-login">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@busy">
+                        <HInput Label="Email"
+                                Type="email"
+                                @bind-Value="login.Email"
+                                autocomplete="email"
+                                maxlength="254"
+                                Required />
+                        <HInput Label="Пароль"
+                                Type="password"
+                                @bind-Value="login.Password"
+                                autocomplete="current-password"
+                                maxlength="128"
+                                Required />
+                    </fieldset>
+                    <HButton Type="submit" Loading="busy" FullWidth>Войти</HButton>
+                </EditForm>
+                <div class="account-switch">
+                    <span class="muted">Нет аккаунта?</span>
+                    <HButton Variant="ghost" Size="sm" Disabled="busy" OnClick="() => SwitchForm(true)">Создать аккаунт</HButton>
+                </div>
+            }
+        </section>
+    }
 </div>
+
+@code
+{
+    private AccountSession? session;
+    private readonly LoginModel login = new();
+    private readonly RegistrationModel registration = new();
+    private ProfileModel profile = new();
+    private bool loading = true;
+    private bool registering;
+    private bool busy;
+    private string? error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadSession();
+        }
+    }
+
+    private async Task LoadSession()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            session = await JS.InvokeAsync<AccountSession>("tempUi.accountSession");
+            if (session.Customer is { } customer)
+            {
+                profile = new ProfileModel { Name = customer.Name, Phone = customer.Phone };
+            }
+        }
+        catch (JSException)
+        {
+            error = "Не удалось загрузить личный кабинет. Попробуйте ещё раз.";
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SwitchForm(bool showRegistration)
+    {
+        if (showRegistration)
+        {
+            registration.Email = login.Email;
+        }
+        else
+        {
+            login.Email = registration.Email;
+        }
+
+        login.Password = "";
+        registration.Password = "";
+        registration.Confirmation = "";
+        registering = showRegistration;
+        error = null;
+    }
+
+    private Task Login() => SendRequest("/login", "POST", login);
+    private Task Register() => SendRequest("/register", "POST", registration);
+    private Task Logout() => SendRequest("/logout", "POST");
+    private Task SaveProfile() => SendRequest("/profile", "PUT", profile);
+
+    private async Task SendRequest(string path, string method, object? body = null)
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var result = await JS.InvokeAsync<AccountResult>("tempUi.accountRequest", path, method, body);
+            if (result.Success)
+            {
+                Navigation.NavigateTo("/account", forceLoad: true);
+            }
+            else
+            {
+                error = result.Message ?? "Не удалось выполнить действие. Попробуйте ещё раз.";
+            }
+        }
+        catch (JSException)
+        {
+            error = "Нет связи с сервером. Попробуйте ещё раз.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private record AccountSession(bool Authenticated, Customer? Customer, string Token);
+    private record AccountResult(bool Success, string? Message);
+}

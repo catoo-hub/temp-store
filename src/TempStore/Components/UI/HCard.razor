@@ -1,9 +1,17 @@
 <section class="card card--@Variant @Class" @attributes="Attributes">
-    @if (Header is not null) { <div class="card__header">@Header</div> }
+    @if (Header is not null)
+    {
+        <div class="card__header">@Header</div>
+    }
     <div class="card__content">@ChildContent</div>
-    @if (Footer is not null) { <div class="card__footer">@Footer</div> }
+    @if (Footer is not null)
+    {
+        <div class="card__footer">@Footer</div>
+    }
 </section>
-@code {
+
+@code
+{
     [Parameter] public string Variant { get; set; } = "default";
     [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? Header { get; set; }

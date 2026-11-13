@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+node_modules/
+artifacts/
+**/App_Data/
+src/TempStore/wwwroot/app.css
+pnpm-lock.yaml
