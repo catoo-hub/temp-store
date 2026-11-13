@@ -1,13 +1,75 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using Microsoft.JSInterop;
+using TempStore.Data;
 using TempStore.Models;
 using TempStore.Services;
 
-var catalog = new CatalogService();
 var checks = 0;
 void Check(bool condition, string name) { if (!condition) throw new Exception("FAIL: " + name); checks++; Console.WriteLine("PASS: " + name); }
-async Task Reject(Func<Task> action, string name) { try { await action(); } catch (ArgumentException) { Check(true, name); return; } catch (InvalidOperationException) { Check(true, name); return; } throw new Exception("FAIL: " + name); }
+async Task Reject(Func<Task> action, string name) { try { await action(); } catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or JSException) { Check(true, name); return; } throw new Exception("FAIL: " + name); }
+var testDirectory = Path.Combine(Path.GetTempPath(), "temp-store-checks-" + Guid.NewGuid().ToString("N"));
+var databasePath = Path.Combine(testDirectory, "catalog.db");
+CatalogData snapshot;
+try
+{
+    var database = new CatalogDatabase(databasePath);
+    var seed = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Data", "catalog.sql"));
+    database.Initialize(seed);
+    snapshot = database.ReadCatalog();
+    Check(snapshot.Products.Length == 8 && snapshot.Brands.Length == 2 && snapshot.Reviews.Length == 3,
+        "New database contains products, brands and reviews");
+    Check(snapshot.Reviews.All(r => snapshot.Products.Any(p => p.Name == r.Product)), "Review names come from their products");
+    using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+    {
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Products SET Price = 610001 WHERE Id = 1";
+        command.ExecuteNonQuery();
+    }
+    database.Initialize(seed);
+    var persisted = new CatalogDatabase(databasePath).ReadCatalog();
+    Check(persisted.Products.Length == 8 && persisted.Brands.Length == 2 && persisted.Reviews.Length == 3,
+        "Repeated initialization does not duplicate seed rows");
+    Check(persisted.Products.Single(p => p.Id == 1).Price == 6100.01m,
+        "Database edits survive initialization and preserve kopecks");
+}
+finally
+{
+    SqliteConnection.ClearAllPools();
+    if (File.Exists(databasePath)) File.Delete(databasePath);
+    if (Directory.Exists(testDirectory)) Directory.Delete(testDirectory);
+}
+var api = new FakeJs { Catalog = snapshot, Delay = true };
+var catalog = new CatalogService(api);
+await Task.WhenAll(catalog.LoadAsync(), catalog.LoadAsync());
+Check(catalog.IsLoaded && api.CatalogReads == 1 && catalog.Products.Count == 8, "Concurrent catalog loads make one API request");
+foreach (var bad in new CatalogData?[] { null, new(null!, [], []), new([], null!, []), new([], [], null!),
+    new([null!], [], []), new([snapshot.Products[0] with { Sizes = null! }], [], []), new([], [null!], []), new([], [], [null!]) })
+{
+    var invalidApi = new FakeJs { Catalog = bad };
+    var invalidCatalog = new CatalogService(invalidApi);
+    await Reject(invalidCatalog.LoadAsync, "Incomplete catalog response is rejected");
+    Check(!invalidCatalog.IsLoaded && invalidCatalog.Products.Count == 0, "Invalid response is not stored as a loaded catalog");
+    invalidApi.Catalog = snapshot;
+    await invalidCatalog.LoadAsync();
+    Check(invalidCatalog.IsLoaded && invalidApi.CatalogReads == 2, "Catalog can retry after an invalid response");
+}
+var savedCart = JsonSerializer.Serialize(new[] { new CartLine(1, "M", 2) });
+var unavailableApi = new FakeJs { Catalog = snapshot, CatalogFailures = 1, Value = savedCart };
+var recoveringCatalog = new CatalogService(unavailableApi);
+var recoveringCart = new CartService(recoveringCatalog, unavailableApi);
+await Reject(recoveringCart.LoadAsync, "Catalog API failure is returned to the caller");
+Check(!recoveringCart.IsLoaded && !recoveringCart.StorageUnavailable && unavailableApi.Reads == 0 && unavailableApi.Writes == 0 && unavailableApi.Value == savedCart,
+    "API failure leaves the saved basket untouched");
+await recoveringCart.LoadAsync();
+Check(recoveringCart.Count == 2 && recoveringCart.Total == 12980m && unavailableApi.CatalogReads == 2 && unavailableApi.Reads == 1,
+    "Retry restores the saved basket after API recovery");
+var freshApi = new FakeJs { Catalog = snapshot };
+var freshCart = new CartService(new CatalogService(freshApi), freshApi);
+await freshCart.AddAsync(1, "M");
+Check(freshCart.Count == 1 && freshApi.CatalogReads == 1, "Adding a product loads its catalog before validation");
 var filter = new CatalogFilter();
 filter.Categories.Add("Футболки"); filter.Brands.Add("Adidas"); filter.Sizes.Add("XS");
 Check(catalog.Products.Where(filter.Matches).Select(x => x.Id).SequenceEqual([2]), "Category, brand and size filters intersect");
@@ -50,16 +112,27 @@ Console.WriteLine($"{checks} checks passed.");
 
 sealed class FakeJs : IJSRuntime
 {
+    public CatalogData? Catalog { get; set; }
+    public int CatalogFailures { get; set; }
+    public int CatalogReads { get; private set; }
     public string? Value { get; set; }
     public bool Deny { get; set; }
     public bool Delay { get; set; }
     public int Reads { get; private set; }
+    public int Writes { get; private set; }
     public ValueTask<T> InvokeAsync<T>(string identifier, object?[]? args) => InvokeAsync<T>(identifier, CancellationToken.None, args);
     public async ValueTask<T> InvokeAsync<T>(string identifier, CancellationToken cancellationToken, object?[]? args)
     {
+        if (identifier == "tempUi.getCatalog")
+        {
+            CatalogReads++;
+            if (Delay) await Task.Delay(20, cancellationToken);
+            if (CatalogFailures > 0) { CatalogFailures--; throw new JSException("Catalog unavailable"); }
+            return (T)(object?)Catalog!;
+        }
         if (Deny) throw new JSException("Storage unavailable");
         if (identifier == "localStorage.getItem") { Reads++; if (Delay) await Task.Delay(20, cancellationToken); return (T)(object?)Value!; }
-        if (identifier == "localStorage.setItem") { Value = (string?)args![1]; return default!; }
+        if (identifier == "localStorage.setItem") { Writes++; Value = (string?)args![1]; return default!; }
         throw new NotSupportedException(identifier);
     }
 }

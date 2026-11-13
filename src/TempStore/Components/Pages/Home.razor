@@ -42,7 +42,10 @@
     <section class="brand-directory">
         <h2>Бренды</h2><div>@foreach (var brand in Catalog.Brands) { <a href="@($"/catalog?brand={Uri.EscapeDataString(brand.Name)}")">@brand.Name <Icon Name="right" Size="16" /></a> }</div>
     </section>
-    <section class="reviews-note"><div><h2>Отзывы</h2><p>Пока нет отзывов о покупках. Здесь появятся впечатления о размерах, посадке и качестве одежды.</p></div><a class="text-link" href="/reviews">Раздел отзывов <Icon Name="right" /></a></section>
+    <section class="section"><div class="section-heading"><h2>Отзывы</h2><a class="text-link" href="/reviews">Все отзывы <Icon Name="right" /></a></div>
+        @if (Catalog.Reviews.Count == 0) { <p class="muted">Отзывов пока нет.</p> }
+        else { <div class="review-grid">@foreach (var review in Catalog.Reviews.Take(3)) { <ReviewCard Review="review" /> }</div> }
+    </section>
     <section class="shop-about" id="about"><div><h2>О магазине</h2><p>В каталоге «ТЕМП» собраны футболки, худи, брюки и другая спортивная одежда. Товары можно отобрать по бренду, размеру и цене.</p><a href="/brands" class="text-link">Бренды в каталоге <Icon Name="right" /></a></div><div id="contacts"><h2>Написать нам</h2><p class="muted small">Задайте вопрос о товаре, размере или заказе.</p><FeedbackForm OnValidated="FeedbackValidated" /></div></section>
 </div>
 @code {

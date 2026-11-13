@@ -1,4 +1,3 @@
-@page "/team"
 <PageTitle>Команда и задачи — ТЕМП</PageTitle>
 <div class="container"><PageHeading Title="Команда и задачи" Eyebrow="УП.03 · ВАРИАНТ №6" Description="План разработки: 2–14 ноября 2026 года." /><HAlert>Имена участников не предоставлены. Ниже — предложенное распределение задач по ролям, а не отчёт о выполненных работах.</HAlert><HTable TItem="TaskRow" Items="tasks" Columns="4" Caption="Распределение задач по команде"><Header><th scope="col">Роль</th><th scope="col">Задача</th><th scope="col">Плановый период</th><th scope="col">Исполнитель</th></Header><Row Context="task"><td><strong>@task.Role</strong></td><td>@task.Task</td><td>@task.Dates</td><td>Не назначен</td></Row></HTable></div>
 @code {

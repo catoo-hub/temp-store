@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject CartService Cart
+@inject CatalogService Catalog
+@inject ILogger<MainLayout> Logger
 @inject IJSRuntime JS
 <a href="#main-content" class="skip-link">Перейти к содержимому</a>
 <header class="site-header"><div class="container header-inner">
@@ -10,7 +12,11 @@
 </div>
 <div class="header-actions"><a href="/catalog" class="icon-link" aria-label="Поиск товаров"><Icon Name="search" /></a><HButton Variant="ghost" IconOnly OnClick="ToggleTheme" aria-label="@(dark ? "Светлая тема" : "Тёмная тема")"><Icon Name="@(dark ? "sun" : "moon")" /></HButton><a href="/account" class="icon-link" aria-label="Личный кабинет"><Icon Name="user" /></a><a href="/cart" class="cart-link" aria-label="@($"Корзина, товаров: {Cart.Count}")"><Icon Name="bag" /><span class="cart-label">Корзина</span><span class="cart-count">@Cart.Count</span></a><HButton Variant="ghost" IconOnly Class="mobile-menu-button" aria-label="Открыть меню" OnClick="() => menuOpen = true"><Icon Name="menu" /></HButton></div>
 </div></header>
-<main id="main-content" class="main-content">@Body</main>
+<main id="main-content" class="main-content">
+@if (Catalog.IsLoaded && Cart.IsLoaded) { @Body }
+else if (loading) { <div class="store-loading" aria-busy="true"><HSpinner Label="Загружаем товары" /><p>Загружаем товары…</p></div> }
+else { <div class="container"><EmptyState Title="Не удалось загрузить товары" Description="Проверьте соединение и попробуйте ещё раз."><HButton OnClick="LoadStore">Попробовать снова</HButton></EmptyState></div> }
+</main>
 <footer class="site-footer photo-footer" @ref="footerElement">
 <img class="footer-photo" src="/images/hero.webp" alt="" width="1500" height="1000" loading="lazy" decoding="async" />
 <div class="container footer-grid">
@@ -24,9 +30,31 @@
 <div id="blazor-error-ui" role="alert">Соединение прервано. <a href="" class="reload">Перезагрузить страницу</a></div>
 @code {
  private bool menuOpen, dark;
+ private bool loading = true, restoreAnchor;
  private ElementReference footerElement;
  protected override void OnInitialized() => Cart.Changed += Refresh;
- protected override async Task OnAfterRenderAsync(bool firstRender) { if (!firstRender) return; await JS.InvokeVoidAsync("tempUi.footerReveal", footerElement); await Cart.LoadAsync(); dark = await JS.InvokeAsync<bool>("tempUi.isDark"); StateHasChanged(); }
+ protected override async Task OnAfterRenderAsync(bool firstRender)
+ {
+     if (firstRender)
+     {
+         await JS.InvokeVoidAsync("tempUi.footerReveal", footerElement);
+         dark = await JS.InvokeAsync<bool>("tempUi.isDark");
+         await LoadStore();
+     }
+     else if (restoreAnchor)
+     {
+         restoreAnchor = false;
+         await JS.InvokeVoidAsync("tempUi.restoreAnchor");
+     }
+ }
+ private async Task LoadStore()
+ {
+     loading = true;
+     try { await Cart.LoadAsync(); restoreAnchor = true; }
+     catch (Exception ex) when (ex is JSException or InvalidOperationException or System.Text.Json.JsonException)
+     { Logger.LogWarning(ex, "Unable to load storefront"); }
+     finally { loading = false; StateHasChanged(); }
+ }
  private async Task ToggleTheme() { dark = !dark; await JS.InvokeVoidAsync("tempUi.theme", dark); }
  private void Refresh() => InvokeAsync(StateHasChanged);
  public void Dispose() => Cart.Changed -= Refresh;

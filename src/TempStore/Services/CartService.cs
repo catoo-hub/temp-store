@@ -18,10 +18,15 @@ public sealed class CartService(CatalogService catalog, IJSRuntime js)
     public decimal Subtotal => lines.Sum(x => (catalog.Find(x.ProductId)!.OldPrice ?? catalog.Find(x.ProductId)!.Price) * x.Quantity);
     public decimal Savings => Subtotal - Total;
 
-    public Task LoadAsync() => loadTask ??= LoadCoreAsync();
+    public async Task LoadAsync()
+    {
+        try { await (loadTask ??= LoadCoreAsync()); }
+        catch { loadTask = null; throw; }
+    }
     private async Task LoadCoreAsync()
     {
         if (IsLoaded) return;
+        await catalog.LoadAsync();
         try
         {
             var json = await js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
@@ -43,9 +48,9 @@ public sealed class CartService(CatalogService catalog, IJSRuntime js)
     }
     public async Task AddAsync(int productId, string size)
     {
+        await LoadAsync();
         var product = catalog.Find(productId) ?? throw new ArgumentException("Товар не найден");
         if (!product.Sizes.Contains(size)) throw new ArgumentException("Выберите доступный размер");
-        await LoadAsync();
         var index = lines.FindIndex(x => x.ProductId == productId && x.Size == size);
         if (index >= 0)
         {

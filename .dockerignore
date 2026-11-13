@@ -9,3 +9,8 @@ outputs
 .env
 .env.*
 *.log
+artifacts
+**/App_Data
+**/*.db
+**/*.db-shm
+**/*.db-wal

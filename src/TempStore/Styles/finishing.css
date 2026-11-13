@@ -1,5 +1,6 @@
 /* Small, consistent radii for controls and product surfaces. */
 :root { --radius:.5rem; }
+.store-loading { min-height:55vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; color:var(--muted); }
 .button,.button--icon-only,.input,.textarea,.quantity-picker,.size-option span,.size-filter span,.tab-list,.tab-button { border-radius:8px; }
 .card,.product-image,.detail-image,.cart-item img,.quick-product img,.brand-card,.order-summary,.table-scroll,.ui-alert,.ui-toast { border-radius:12px; }
 .product-info .button { border-radius:8px; }

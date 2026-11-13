@@ -1,4 +1,17 @@
 window.tempUi = {
+  async getCatalog() {
+    const response = await fetch(new URL('api/catalog', document.baseURI), {
+      headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw new Error('Не удалось загрузить товары. Попробуйте ещё раз.');
+    return response.json();
+  },
+  restoreAnchor() {
+    try {
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (id) document.getElementById(id)?.scrollIntoView();
+    } catch { /* Ignore malformed URL fragments. */ }
+  },
   footerReveal(element) {
     // The layout survives route changes; keep only one set of listeners.
     window.tempUi.disposeFooterReveal?.();
