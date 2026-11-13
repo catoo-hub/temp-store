@@ -9,9 +9,9 @@ RUN mkdir -p src/TempStore/wwwroot && pnpm run build:css
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY src/TempStore/TempStore.csproj src/TempStore/
-RUN dotnet restore src/TempStore/TempStore.csproj
+# .NET 10 needs Razor files present during restore to include Blazor assets.
 COPY src/TempStore/ src/TempStore/
+RUN dotnet restore src/TempStore/TempStore.csproj
 COPY --from=styles /src/src/TempStore/wwwroot/app.css src/TempStore/wwwroot/app.css
 RUN dotnet publish src/TempStore/TempStore.csproj --configuration Release --no-restore --output /app/publish
 
