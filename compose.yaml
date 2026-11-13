@@ -1,0 +1,21 @@
+name: temp-store
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: tempstore
+      POSTGRES_USER: tempstore
+      POSTGRES_PASSWORD: tempstore_dev
+    ports:
+      - '127.0.0.1:5438:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tempstore -d tempstore']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.JSInterop;
+using Npgsql;
 using TempStore.Data;
 using TempStore.Models;
 using TempStore.Services;
@@ -68,14 +68,103 @@ CreateOrderModel OrderDraft() => new()
     Items = [new CartLine(1, "M", 2)]
 };
 
-var testDirectory = Path.Combine(Path.GetTempPath(), "temp-store-checks-" + Guid.NewGuid().ToString("N"));
-var databasePath = Path.Combine(testDirectory, "catalog.db");
-var accountDatabasePath = Path.Combine(testDirectory, "accounts.db");
-var orderDatabasePath = Path.Combine(testDirectory, "orders.db");
+foreach (var scheme in new[] { "postgres", "postgresql" })
+{
+    var parsed = new NpgsqlConnectionStringBuilder(DatabaseConfiguration.ConnectionString(
+        $"{scheme}://qa%40local:p%3Aa%2Fss%3Fword%23%25%2B@localhost/test%20db%2Bname"));
+    Check(parsed.Host == "localhost" && parsed.Port == 5432 && parsed.Username == "qa@local"
+        && parsed.Password == "p:a/ss?word#%+" && parsed.Database == "test db+name"
+        && parsed.SslMode == SslMode.Prefer,
+        $"{scheme} URL decodes credentials and database with default port and SSL mode");
+}
+
+var customPort = new NpgsqlConnectionStringBuilder(DatabaseConfiguration.ConnectionString(
+    "postgresql://qa:password@localhost:55432/checks"));
+Check(customPort.Port == 55432, "Database URL preserves an explicit port");
+
+foreach (var (mode, expected) in new[]
+{
+    ("disable", SslMode.Disable),
+    ("allow", SslMode.Allow),
+    ("prefer", SslMode.Prefer),
+    ("require", SslMode.Require),
+    ("verify-ca", SslMode.VerifyCA),
+    ("VERIFY-FULL", SslMode.VerifyFull)
+})
+{
+    var parsed = new NpgsqlConnectionStringBuilder(DatabaseConfiguration.ConnectionString(
+        $"postgresql://qa:password@localhost/checks?sslmode={mode}"));
+    Check(parsed.SslMode == expected, $"Database URL accepts SSL mode {mode}");
+}
+
+var nativeSettings = new NpgsqlConnectionStringBuilder(DatabaseConfiguration.ConnectionString(
+    "Host=localhost;Port=55432;Database=checks;Username=qa;Password=test-password;SSL Mode=Disable"));
+Check(nativeSettings.Database == "checks" && nativeSettings.Port == 55432
+    && nativeSettings.Username == "qa" && nativeSettings.Password == "test-password"
+    && nativeSettings.SslMode == SslMode.Disable,
+    "Native PostgreSQL connection strings remain supported");
+
+foreach (var invalidConfiguration in new[]
+{
+    "",
+    "https://qa:dummy-secret@localhost/checks",
+    "postgresql://qa:dummy-secret@localhost/checks?sslmode=unknown",
+    "postgresql://qa:dummy-secret@localhost/checks?password=dummy-secret",
+    "postgresql://qa:dummy-secret@localhost:invalid/checks",
+    "Host=localhost;Password=dummy-secret;Unsupported=1"
+})
+{
+    var rejectedSafely = false;
+    try
+    {
+        DatabaseConfiguration.ConnectionString(invalidConfiguration);
+    }
+    catch (ArgumentException exception)
+    {
+        rejectedSafely = !exception.ToString().Contains("dummy-secret", StringComparison.Ordinal)
+            && exception.InnerException is null;
+    }
+    Check(rejectedSafely, "Invalid database configuration is rejected without exposing credentials");
+}
+
+var testDatabaseUrl = Environment.GetEnvironmentVariable("TEST_DATABASE_URL");
+if (string.IsNullOrWhiteSpace(testDatabaseUrl))
+{
+    throw new InvalidOperationException("Set TEST_DATABASE_URL to a local PostgreSQL test database.");
+}
+
+var connectionString = DatabaseConfiguration.ConnectionString(testDatabaseUrl);
+var connectionSettings = new NpgsqlConnectionStringBuilder(connectionString);
+if (connectionSettings.Host is not ("localhost" or "127.0.0.1" or "::1"))
+{
+    throw new InvalidOperationException("Checks can connect only to a local PostgreSQL test database.");
+}
+
+using var adminSource = NpgsqlDataSource.Create(connectionString);
+using var adminConnection = adminSource.OpenConnection();
+var createdSchemas = new List<string>();
+var testSources = new List<NpgsqlDataSource>();
+
+NpgsqlDataSource CreateTestSchema(string name)
+{
+    var schema = "checks_" + name + "_" + Guid.NewGuid().ToString("N");
+    using var command = adminConnection.CreateCommand();
+    command.CommandText = $"CREATE SCHEMA \"{schema}\"";
+    command.ExecuteNonQuery();
+    createdSchemas.Add(schema);
+    var settings = new NpgsqlConnectionStringBuilder(connectionString) { SearchPath = schema };
+    var source = NpgsqlDataSource.Create(settings.ConnectionString);
+    testSources.Add(source);
+    return source;
+}
+
 CatalogData snapshot;
 try
 {
-    var database = new CatalogDatabase(databasePath);
+    var catalogSource = CreateTestSchema("catalog");
+    var accountSource = CreateTestSchema("accounts");
+    var orderSource = CreateTestSchema("orders");
+    var database = new CatalogDatabase(catalogSource);
     var seed = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Data", "catalog.sql"));
     database.Initialize(seed);
     snapshot = database.ReadCatalog();
@@ -84,17 +173,15 @@ try
     Check(snapshot.Reviews.All(r => snapshot.Products.Any(p => p.Name == r.Product)),
         "Review names come from their products");
 
-    using (var connection = new SqliteConnection(
-        new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+    using (var connection = catalogSource.OpenConnection())
     {
-        connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "UPDATE Products SET Price = 610001 WHERE Id = 1";
         command.ExecuteNonQuery();
     }
 
     database.Initialize(seed);
-    var persisted = new CatalogDatabase(databasePath).ReadCatalog();
+    var persisted = new CatalogDatabase(catalogSource).ReadCatalog();
     Check(persisted.Products.Length == 8 && persisted.Brands.Length == 2 && persisted.Reviews.Length == 3,
         "Repeated initialization does not duplicate seed rows");
     Check(persisted.Products.Single(p => p.Id == 1).Price == 6100.01m,
@@ -132,13 +219,13 @@ try
     var replacement = database.SaveProduct(ProductDraft())!;
     database.DeleteProduct(replacement.Id);
     database.Initialize(seed);
-    var afterRestart = new CatalogDatabase(databasePath).SaveProduct(ProductDraft())!;
+    var afterRestart = new CatalogDatabase(catalogSource).SaveProduct(ProductDraft())!;
     Check(replacement.Id > created.Id && afterRestart.Id > replacement.Id,
         "Deleted product IDs are not reused, including after reinitialization");
     Check(database.DeleteProduct(1) && database.ReadCatalog().Reviews.Length == 2,
         "Deleting a product also deletes its related reviews");
 
-    var accounts = new AccountDatabase(accountDatabasePath);
+    var accounts = new AccountDatabase(accountSource);
     accounts.Initialize();
     var registration = RegistrationDraft();
     registration.Name = "  Анна O'Connor  ";
@@ -157,13 +244,11 @@ try
         && accounts.Login(customer.Email, new string('x', 129)) is null,
         "Incorrect and invalid customer credentials are rejected");
 
-    using (var connection = new SqliteConnection(
-        new SqliteConnectionStringBuilder { DataSource = accountDatabasePath }.ToString()))
+    using (var connection = accountSource.OpenConnection())
     {
-        connection.Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT PasswordHash FROM Users WHERE Id = $id";
-        command.Parameters.AddWithValue("$id", customer.Id);
+        command.CommandText = "SELECT PasswordHash FROM Users WHERE Id = @id";
+        command.Parameters.AddWithValue("id", customer.Id);
         var passwordHash = (string)command.ExecuteScalar()!;
         Check(passwordHash != registration.Password && passwordHash.Length >= 60,
             "Customer password is stored as a hash instead of plaintext");
@@ -176,7 +261,7 @@ try
     {
         accounts.Register(duplicate);
     }
-    catch (SqliteException exception) when (exception.SqliteErrorCode == 19)
+    catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
     {
         duplicateRejected = true;
     }
@@ -191,21 +276,21 @@ try
     Check(accounts.Find(999999) is null && accounts.UpdateProfile(999999, profile) is null,
         "Unknown customer cannot be loaded or updated");
 
-    var reopenedAccounts = new AccountDatabase(accountDatabasePath);
+    var reopenedAccounts = new AccountDatabase(accountSource);
     reopenedAccounts.Initialize();
     Check(reopenedAccounts.Find(customer.Id) == savedProfile
         && reopenedAccounts.Login(customer.Email, registration.Password)?.Id == customer.Id,
         "Initialization preserves customer profiles and passwords");
 
-    var orderCatalog = new CatalogDatabase(orderDatabasePath);
+    var orderCatalog = new CatalogDatabase(orderSource);
     orderCatalog.Initialize(seed);
-    var orderAccounts = new AccountDatabase(orderDatabasePath);
+    var orderAccounts = new AccountDatabase(orderSource);
     orderAccounts.Initialize();
     var buyer = orderAccounts.Register(RegistrationDraft());
     var otherRegistration = RegistrationDraft();
     otherRegistration.Email = "other@example.test";
     var otherBuyer = orderAccounts.Register(otherRegistration);
-    var orders = new OrderDatabase(orderDatabasePath);
+    var orders = new OrderDatabase(orderSource);
     orders.Initialize();
 
     var orderRequest = OrderDraft();
@@ -279,6 +364,51 @@ try
         && orders.GetForCustomer(buyer.Id).Count(item => item.Id == concurrentOrders[0].Id) == 1,
         "Concurrent duplicate requests create one order");
 
+    var limitedSettings = new NpgsqlConnectionStringBuilder(connectionString)
+    {
+        SearchPath = new NpgsqlConnectionStringBuilder(orderSource.ConnectionString).SearchPath,
+        MaxPoolSize = 1,
+        Timeout = 2
+    };
+    using (var limitedSource = NpgsqlDataSource.Create(limitedSettings.ConnectionString))
+    {
+        var limitedOrders = new OrderDatabase(limitedSource);
+        var request = OrderDraft();
+        var createdOrder = limitedOrders.Create(buyer.Id, request);
+        var repeated = limitedOrders.Create(buyer.Id, request);
+        var payment = limitedOrders.Pay(buyer.Id, createdOrder.Id);
+        var processed = limitedOrders.ChangeStatus(createdOrder.Id, "processing");
+        Check(repeated.Id == createdOrder.Id && payment?.Paid == true && processed?.Status == "processing",
+            "Order retry, payment and status update work with a single pooled connection");
+    }
+
+    var racingOrder = orders.Create(buyer.Id, OrderDraft());
+    using (var start = new Barrier(2))
+    {
+        var payment = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            try
+            {
+                return orders.Pay(buyer.Id, racingOrder.Id)!.Paid;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        });
+        var cancellation = Task.Run(() =>
+        {
+            start.SignalAndWait();
+            return orders.ChangeStatus(racingOrder.Id, "cancelled");
+        });
+        await Task.WhenAll(payment, cancellation);
+        var result = orders.GetForCustomer(buyer.Id).Single(item => item.Id == racingOrder.Id);
+        Check(result.Status == "cancelled" && cancellation.Result?.Status == "cancelled"
+            && result.Paid == payment.Result && result.Total == racingOrder.Total,
+            "Concurrent payment and cancellation preserve the winning payment result and cancelled status");
+    }
+
     await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "processing")),
         "Unpaid order cannot enter processing");
     await Reject(() => Task.FromResult(orders.ChangeStatus(order.Id, "shipped")),
@@ -325,7 +455,7 @@ try
         "Deleting a product preserves historical order totals and details");
     Check(orders.Create(buyer.Id, orderRequest).Id == order.Id,
         "Retry after product deletion still returns the original order");
-    var reopenedOrders = new OrderDatabase(orderDatabasePath);
+    var reopenedOrders = new OrderDatabase(orderSource);
     reopenedOrders.Initialize();
     var reopenedOrder = reopenedOrders.GetForCustomer(buyer.Id).Single(item => item.Id == order.Id);
     Check(reopenedOrder.Paid && reopenedOrder.Status == "completed"
@@ -334,18 +464,16 @@ try
 }
 finally
 {
-    SqliteConnection.ClearAllPools();
-    foreach (var file in new[] { databasePath, accountDatabasePath, orderDatabasePath })
+    foreach (var source in testSources)
     {
-        if (File.Exists(file))
-        {
-            File.Delete(file);
-        }
+        source.Dispose();
     }
 
-    if (Directory.Exists(testDirectory))
+    foreach (var schema in createdSchemas)
     {
-        Directory.Delete(testDirectory);
+        using var command = adminConnection.CreateCommand();
+        command.CommandText = $"DROP SCHEMA \"{schema}\" CASCADE";
+        command.ExecuteNonQuery();
     }
 }
 

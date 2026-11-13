@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.Data.Sqlite;
+using Npgsql;
 using TempStore.Models;
 
 namespace TempStore.Data;
@@ -78,7 +78,7 @@ public static class AccountEndpoints
             {
                 customer = database.Register(registration!);
             }
-            catch (SqliteException exception) when (exception.SqliteErrorCode == 19)
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
             {
                 return Error(409, "Аккаунт с таким email уже существует");
             }

@@ -1,48 +1,34 @@
 using System.Text.Json;
-using Microsoft.Data.Sqlite;
+using Npgsql;
+using NpgsqlTypes;
 using TempStore.Models;
 
 namespace TempStore.Data;
 
-public sealed class CatalogDatabase(string path)
+public sealed class CatalogDatabase(NpgsqlDataSource database)
 {
-    private readonly string connectionString = new SqliteConnectionStringBuilder
-    {
-        DataSource = Path.GetFullPath(path),
-        ForeignKeys = true
-    }.ToString();
-
     public void Initialize(string seedSql)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
+        using var connection = database.OpenConnection();
         using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = "PRAGMA user_version";
-        if (Convert.ToInt32(command.ExecuteScalar()) == 0)
+        // Serialize first-time seeding when two instances start together.
+        command.CommandText = "SELECT pg_advisory_xact_lock(1734001)";
+        command.ExecuteNonQuery();
+        command.CommandText = "SELECT to_regclass('products')::text";
+        if (command.ExecuteScalar() is null or DBNull)
         {
             command.CommandText = seedSql;
             command.ExecuteNonQuery();
         }
 
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS ProductSequence (
-                Id INTEGER PRIMARY KEY CHECK (Id = 1),
-                NextId INTEGER NOT NULL
-            );
-            INSERT OR IGNORE INTO ProductSequence (Id, NextId)
-                SELECT 1, COALESCE(MAX(Id), 0) + 1 FROM Products;
-            """;
-        command.ExecuteNonQuery();
         transaction.Commit();
     }
 
     public CatalogData ReadCatalog()
     {
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
+        using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT Id, Name, Brand, Category, Price, OldPrice, Image, Color, Sizes, IsNew, Popular
@@ -81,58 +67,47 @@ public sealed class CatalogDatabase(string path)
 
     public Product? SaveProduct(ProductEdit edit, int? id = null)
     {
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
+        using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        var productId = id;
-        if (productId is null)
-        {
-            command.CommandText = "UPDATE ProductSequence SET NextId = NextId + 1 WHERE Id = 1 RETURNING NextId - 1";
-            productId = Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        var product = new Product(productId.Value, edit.Name.Trim(), edit.Brand.Trim(), edit.Category.Trim(),
+        var product = new Product(id ?? 0, edit.Name.Trim(), edit.Brand.Trim(), edit.Category.Trim(),
             edit.Price, edit.OldPrice, edit.Image, edit.Color.Trim(), edit.ParseSizes(), edit.IsNew, edit.Popular);
         command.CommandText = id is null
             ? """
-              INSERT INTO Products (Id, Name, Brand, Category, Price, OldPrice, Image, Color, Sizes, IsNew, Popular)
-              VALUES ($id, $name, $brand, $category, $price, $oldPrice, $image, $color, $sizes, $isNew, $popular);
+              INSERT INTO Products (Name, Brand, Category, Price, OldPrice, Image, Color, Sizes, IsNew, Popular)
+              VALUES (@name, @brand, @category, @price, @oldPrice, @image, @color, @sizes, @isNew, @popular)
+              RETURNING Id;
               """
             : """
-              UPDATE Products SET Name = $name, Brand = $brand, Category = $category,
-                  Price = $price, OldPrice = $oldPrice, Image = $image, Color = $color,
-                  Sizes = $sizes, IsNew = $isNew, Popular = $popular
-              WHERE Id = $id;
+              UPDATE Products SET Name = @name, Brand = @brand, Category = @category,
+                  Price = @price, OldPrice = @oldPrice, Image = @image, Color = @color,
+                  Sizes = @sizes, IsNew = @isNew, Popular = @popular
+              WHERE Id = @id RETURNING Id;
               """;
-        command.Parameters.AddWithValue("$id", product.Id);
-        command.Parameters.AddWithValue("$name", product.Name);
-        command.Parameters.AddWithValue("$brand", product.Brand);
-        command.Parameters.AddWithValue("$category", product.Category);
-        command.Parameters.AddWithValue("$price", (long)(product.Price * 100));
-        command.Parameters.AddWithValue("$oldPrice", product.OldPrice is decimal old ? (object)(long)(old * 100) : DBNull.Value);
-        command.Parameters.AddWithValue("$image", product.Image);
-        command.Parameters.AddWithValue("$color", product.Color);
-        command.Parameters.AddWithValue("$sizes", JsonSerializer.Serialize(product.Sizes));
-        command.Parameters.AddWithValue("$isNew", product.IsNew);
-        command.Parameters.AddWithValue("$popular", product.Popular);
-        var changed = command.ExecuteNonQuery() > 0;
-        transaction.Commit();
-        return changed ? product : null;
+        if (id is not null)
+            command.Parameters.AddWithValue("id", id.Value);
+        command.Parameters.AddWithValue("name", product.Name);
+        command.Parameters.AddWithValue("brand", product.Brand);
+        command.Parameters.AddWithValue("category", product.Category);
+        command.Parameters.AddWithValue("price", (long)(product.Price * 100));
+        command.Parameters.AddWithValue("oldPrice", NpgsqlDbType.Bigint, product.OldPrice is decimal old ? (object)(long)(old * 100) : DBNull.Value);
+        command.Parameters.AddWithValue("image", product.Image);
+        command.Parameters.AddWithValue("color", product.Color);
+        command.Parameters.AddWithValue("sizes", JsonSerializer.Serialize(product.Sizes));
+        command.Parameters.AddWithValue("isNew", product.IsNew);
+        command.Parameters.AddWithValue("popular", product.Popular);
+        return command.ExecuteScalar() is int savedId ? product with { Id = savedId } : null;
     }
 
     public bool DeleteProduct(int id)
     {
-        using var connection = new SqliteConnection(connectionString);
-        connection.Open();
+        using var connection = database.OpenConnection();
         using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.Parameters.AddWithValue("$id", id);
-        command.CommandText = "DELETE FROM Reviews WHERE ProductId = $id";
+        command.Parameters.AddWithValue("id", id);
+        command.CommandText = "DELETE FROM Reviews WHERE ProductId = @id";
         command.ExecuteNonQuery();
-        command.CommandText = "DELETE FROM Products WHERE Id = $id";
+        command.CommandText = "DELETE FROM Products WHERE Id = @id";
         var deleted = command.ExecuteNonQuery() > 0;
         transaction.Commit();
         return deleted;

@@ -2,20 +2,27 @@ using System.Threading.RateLimiting;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Npgsql;
 using TempStore.Components;
 using TempStore.Data;
 using TempStore.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-var databasePath = Path.GetFullPath(
-    builder.Configuration["Database:Path"] ?? "App_Data/store.db", builder.Environment.ContentRootPath);
+var databaseUrl = builder.Configuration["DATABASE_URL"];
+if (string.IsNullOrWhiteSpace(databaseUrl))
+{
+    throw new InvalidOperationException("Задайте DATABASE_URL для подключения к PostgreSQL.");
+}
+
+var connectionString = DatabaseConfiguration.ConnectionString(databaseUrl);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddScoped<CatalogService>();
-builder.Services.AddSingleton(new CatalogDatabase(databasePath));
-builder.Services.AddSingleton(new AccountDatabase(databasePath));
-builder.Services.AddSingleton(new OrderDatabase(databasePath));
+builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
+builder.Services.AddSingleton<CatalogDatabase>();
+builder.Services.AddSingleton<AccountDatabase>();
+builder.Services.AddSingleton<OrderDatabase>();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<AdminAccess>();
